@@ -91,7 +91,7 @@ const CodexPage = lazyWithChunkRetry(() => import('./pages/CodexPage'));
 const WarRoomPage = lazyWithChunkRetry(() => import('./pages/WarRoomPage'));
 
 function RouteLoadingFallback() {
-  // A game on its way says so (`game_loading_label_enabled`).
+  // A game on its way says so.
   const gameLoading = useGameLoadingKind();
   if (gameLoading) return <GameLoadingFallback practice={gameLoading === 'practice'} />;
   return (
@@ -262,7 +262,7 @@ export default function App() {
     applyAccessibilityDomPrefs();
     return subscribeUserPreferences(applyAccessibilityDomPrefs);
   }, []);
-  // Phone touch targets (`touch_targets_enabled`): marks the document for index.css.
+  // Phone touch targets: marks the document for index.css.
   useTouchTargetsRoot();
 
   // Bootstrap auth on app load. Because access tokens are no longer persisted

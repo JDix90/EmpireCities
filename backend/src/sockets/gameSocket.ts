@@ -2660,11 +2660,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (turnReadyAcked.get(gameId) === key) return;
         turnReadyAcked.set(gameId, key);
         // Late acks are recorded (to dedupe) but do not reset the clock, except
-        // on a seat's first turn (every seat's first turn is turn 1) with
-        // first_turn_clock_wait_enabled: the client holds this ack until the
-        // game-start briefing closes, and a new player reading it should not
-        // lose the time. Still once per seat, and only while the turn is live.
-        const firstTurnWaits = featureFlags.firstTurnClockWaitEnabled && state.turn_number === 1;
+        // on a seat's first turn (every seat's first turn is turn 1): the
+        // client holds this ack until the game-start briefing closes, and a new
+        // player reading it should not lose the time. Still once per seat, and
+        // only while the turn is live.
+        const firstTurnWaits = state.turn_number === 1;
         if (!firstTurnWaits && Date.now() - state.turn_started_at > TURN_READY_MAX_WINDOW_MS) return;
 
         state.turn_started_at = Date.now();

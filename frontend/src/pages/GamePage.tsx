@@ -26,7 +26,7 @@ import { useGameStore, CombatResult, type AiTurnDigest, type GameState as Client
 import { describeAiTurnDigest, digestReportsAction } from '../utils/aiTurnDigest';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled, useTutorialWrapupToMatchEnabled, useGuestPromptV2Enabled, useResultsFooterEnabled, useGameVisibleHeightEnabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled, useTutorialWrapupToMatchEnabled, useGuestPromptV2Enabled } from '../store/featureFlagsStore';
 import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { usePagePinchLock } from '../hooks/usePagePinchLock';
 import { useRnParamTracker } from '../hooks/useRnParamTracker';
@@ -38,7 +38,7 @@ import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from 
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { isSameMap } from '../utils/mapResend';
-import { dropOwnCombats, replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
+import { dropOwnCombats } from '../utils/modalQueueOps';
 import { isOwnCardRedemption } from '../utils/cardsRedeemed';
 import { isForAnotherGame } from '../utils/gameScopedEvents';
 import { useFrameBudget } from '../hooks/useFrameBudget';
@@ -68,11 +68,10 @@ import GameHUD from '../components/game/GameHUD';
 import GamePanelBoundary from '../components/game/GamePanelBoundary';
 import { MapControlChip } from '../components/game/MapControlTracker';
 import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
-import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
 import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled, useTutorialGuidedDraftEnabled } from '../store/featureFlagsStore';
 import { usePlayOnStore, type PlayOnResult, type PlayOnVoteView } from '../store/playOnStore';
 import { useFirstTurnEventsEnabled } from '../store/featureFlagsStore';
-import { useFirstTurnClockWaitEnabled, usePhoneTurnCountdownEnabled } from '../store/featureFlagsStore';
+import { usePhoneTurnCountdownEnabled } from '../store/featureFlagsStore';
 import { PhonePhaseButton, phoneCountdownApplies } from '../components/game/PhoneTurnCountdown';
 import { useResultsActionEventsEnabled, useFirstMatchLadderEnabled } from '../store/featureFlagsStore';
 import { fetchNextMatchKind, isLadderGame, nextBattleLabel, type NextMatchKind } from '../utils/ladder';
@@ -642,9 +641,6 @@ export default function GamePage() {
   // Socket handlers are bound once; they read the layout through this ref.
   const isMobileLayoutRef = useRef(isMobileLayout);
   isMobileLayoutRef.current = isMobileLayout;
-  // Desktop own-turn recap as a panel row, not a modal (`turn_recap_panel_enabled`).
-  const turnRecapPanelRef = useRef(false);
-  turnRecapPanelRef.current = useTurnRecapPanelEnabled();
   // Split is a desktop view: in a phone layout the chart stands in for it.
   const galaxySplitMode = galaxyView === 'split' && !isMobileLayout;
   const galaxyOverviewMode = galaxyView === 'chart' || (galaxyView === 'split' && isMobileLayout);
@@ -770,7 +766,6 @@ export default function GamePage() {
   // The Galactic Age open beta: its games carry a BETA tag in the top bar.
   const galacticBeta = useGalaxyAgeBetaEnabled();
   const asyncOnboardingFlag = useAsyncOnboardingEnabled();
-  const turnClarityFlag = useTurnClarityEnabled();
   const galaxyTutorialFlag = useGalaxyTutorialEnabled();
   // Coach tips (coach_tips_enabled, utils/coachTips.ts) replace the first-turn card.
   const coachTipsFlag = useCoachTipsEnabled();
@@ -1012,7 +1007,7 @@ export default function GamePage() {
     // `game:joined` seat arrives, so on some join/resume timings the player sees
     // "your turn" + the phase bar but the rings would never appear.
     const viewerId = viewerPlayer?.player_id ?? null;
-    if (!turnClarityFlag || !gameState || !viewerId) return null;
+    if (!gameState || !viewerId) return null;
     const phase = gameState.phase;
     if (phase !== 'attack' && phase !== 'fortify') return null;
     const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === viewerId;
@@ -1031,7 +1026,7 @@ export default function GamePage() {
       if ((gameState.fortify_moves_used ?? 0) >= fortifyLimit) return null;
     }
     return viewerId;
-  }, [turnClarityFlag, gameState, viewerPlayer, attackSource, selectedTerritory]);
+  }, [gameState, viewerPlayer, attackSource, selectedTerritory]);
 
   // Era board re-skin (Layer 1): the board atmosphere follows the VIEWING player's
   // current era, so advancing visibly transforms the world. Gated to era-advancement
@@ -1143,7 +1138,6 @@ export default function GamePage() {
   // The phone bar's turn clock (components/game/PhoneTurnCountdown.tsx). The
   // first turn's clock is held while the briefing is open, as on desktop.
   const phoneTurnCountdown = usePhoneTurnCountdownEnabled();
-  const firstTurnClockWait = useFirstTurnClockWaitEnabled();
   const firstTurnRef = useRef<{ gameId: string | null; prev: FirstTurnView | null; sent: Set<FirstTurnStep>; since: number }>(
     { gameId: null, prev: null, sent: new Set(), since: 0 },
   );
@@ -1190,9 +1184,8 @@ export default function GamePage() {
   // globe is ready (or the 2D fallback mounts) and it is the local human's
   // turn, we send a one-shot `game:turn_ready` so the server realigns
   // turn_started_at. The server guards this to once per turn within a short
-  // window, so it cannot be abused to stall the clock. (On turn 1, with
-  // first_turn_clock_wait_enabled, the window is lifted: the ack waits for the
-  // game-start briefing.)
+  // window, so it cannot be abused to stall the clock. (On turn 1 the window
+  // is lifted: the ack waits for the game-start briefing.)
   const globeReadyRef = useRef(false);
   const turnReadyAckRef = useRef<string | null>(null);
 
@@ -1919,9 +1912,9 @@ export default function GamePage() {
           const combats = [...ownTurnCombatsRef.current];
           const reinforcements = [...ownTurnReinforcementsRef.current];
           const fortifications = [...ownTurnFortificationsRef.current];
-          // Desktop folds the recap into the panel, as a phone does
-          // (`turn_recap_panel_enabled`): a "Your turn" row, no modal.
-          const foldOwnRecap = turnRecapPanelRef.current && !isMobileLayoutRef.current;
+          // Desktop folds the recap into the panel: a "Your turn" row, no
+          // modal. A phone shows no recap of the player's own moves at all (M-12).
+          const foldOwnRecap = !isMobileLayoutRef.current;
           let ownRecap: TurnRecapEntry | null = null;
           // The tutorial narrates its own turns; its summary carousel popped
           // over the lesson card at the start of turn 2 and intercepted Next
@@ -1930,29 +1923,15 @@ export default function GamePage() {
             !state.settings.tutorial
             && (combats.length > 0 || reinforcements.length > 0 || fortifications.length > 0)
           ) {
-            const summary = {
-              type: 'turn_summary' as const,
-              playerName: myPlayerData?.username ?? prevPlayer.username,
-              playerColor: myPlayerData?.color ?? prevPlayer.color,
-              turnNumber: state.turn_number,
-              combats,
-              isOwnTurn: true,
-              reinforcements,
-              fortifications,
-            };
-            // Fold this turn's own combat modals into the summary and show it now,
-            // rather than appending behind them where it surfaces a turn late.
-            // A phone folds them away and shows no summary at all (M-12): the
-            // recap of the player's own moves is not worth a modal there.
-            setModalQueue(q => (isMobileLayoutRef.current || foldOwnRecap
-              ? dropOwnCombats(q, combats)
-              : replaceOwnCombatsWithSummary(q, combats, summary)));
+            // This turn's own combat modals fold away rather than surfacing a
+            // turn late; no summary modal takes their place.
+            setModalQueue(q => dropOwnCombats(q, combats));
             if (foldOwnRecap) {
               const digestLine = ownTurnDigest(reinforcements, fortifications);
               ownRecap = {
-                playerName: summary.playerName,
-                playerColor: summary.playerColor,
-                turnNumber: summary.turnNumber,
+                playerName: myPlayerData?.username ?? prevPlayer.username,
+                playerColor: myPlayerData?.color ?? prevPlayer.color,
+                turnNumber: state.turn_number,
                 combats,
                 ownTurn: true,
                 ...(digestLine ? { digestLine } : {}),
@@ -1978,8 +1957,8 @@ export default function GamePage() {
           ownTurnReinforcementsRef.current = [];
           ownTurnFortificationsRef.current = [];
           // My turn just ended — recaps gathered for it are stale now. On
-          // desktop under `turn_recap_panel_enabled` the panel starts again
-          // from the turn just played, and the others' turns append to it.
+          // desktop the panel starts again from the turn just played, and the
+          // others' turns append to it.
           setAiRecaps(ownRecap ? [ownRecap] : []);
           // Async: the wait for the opponent starts now, which is the moment a
           // ping for the next turn is worth something to the player. Once per
@@ -2673,10 +2652,9 @@ export default function GamePage() {
       backgroundMusic.playEraSwell();
       const payoff = pendingAdvancePayoffRef.current;
       pendingAdvancePayoffRef.current = null;
-      const payoffEnabled = useFeatureFlagsStore.getState().flags.era_advance_payoff_enabled;
-      if (payoffEnabled && era_id) {
-        // The advancing player's signature moment (dark-launched). Supersedes the
-        // toast with a richer payoff card naming the newly-unlocked ability.
+      if (era_id) {
+        // The advancing player's signature moment: a payoff card naming the
+        // newly-unlocked ability. Without an era id there is only the toast.
         setModalQueue((prev) => [
           ...prev,
           {
@@ -3862,7 +3840,7 @@ export default function GamePage() {
   const handleAdvancePhase = () => {
     // Leaving the reinforcement phase with unplaced units silently auto-places
     // them server-side — confirm first so a new player doesn't waste them.
-    if (turnClarityFlag && gameState?.phase === 'draft' && draftUnitsRemaining > 0) {
+    if (gameState?.phase === 'draft' && draftUnitsRemaining > 0) {
       setEndDraftConfirm(draftUnitsRemaining);
       return;
     }
@@ -4170,11 +4148,6 @@ export default function GamePage() {
     navigate('/lobby');
   };
 
-  // `results_footer_enabled`: the results' account box is the ask; Return to
-  // Lobby does not repeat it as a blocking nudge.
-  const resultsFooterFlag = useResultsFooterEnabled();
-  // The game screen as tall as what the browser shows (game_visible_height_enabled).
-  const visibleHeight = useGameVisibleHeightEnabled();
   const handleGameOverDismiss = () => {
     // Capture the outcome before the modal is sliced off the queue, so the
     // signup nudge can lead with the win when the guest just won.
@@ -4214,9 +4187,9 @@ export default function GamePage() {
       return;
     }
     // A guest's results showed the account box (GameOverView, whenever the
-    // upgrade action is offered), so under `results_footer_enabled` Return to
-    // Lobby goes straight there instead of asking a second time.
-    if (resultsFooterFlag && user?.is_guest && ownAuthUiAllowed()) {
+    // upgrade action is offered), so Return to Lobby goes straight there
+    // instead of asking a second time.
+    if (user?.is_guest && ownAuthUiAllowed()) {
       navigate('/lobby');
       return;
     }
@@ -5505,7 +5478,7 @@ export default function GamePage() {
     // The game is the page's main content: a `main` landmark, and an h1 a
     // screen reader can jump to (the bar shows the brand, not a heading).
     <main
-      className={clsx(visibleHeight ? 'h-visible' : 'h-screen', 'bg-bf-dark flex flex-col overflow-hidden')}
+      className="h-visible bg-bf-dark flex flex-col overflow-hidden"
       data-mobile-layout={isMobileLayout ? 'true' : 'false'}
     >
       <h1 className="sr-only" data-testid="game-heading">
@@ -6392,7 +6365,7 @@ export default function GamePage() {
                 onClick={handleAdvancePhase}
                 gameState={gameState}
                 countdown={phoneCountdownApplies(gameState, myTurn, phoneTurnCountdown)}
-                holdClock={firstTurnClockWait && showStartModal && gameState.turn_number === 1}
+                holdClock={showStartModal && gameState.turn_number === 1}
                 quiet={phaseButtonIsQuiet}
               />
             )}

@@ -74,15 +74,6 @@ describe('featureFlags', () => {
     expect(featureFlags.rankedEraAdvancementEnabled).toBe(true);
   });
 
-  it('turn_recap_panel_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.turnRecapPanelEnabled).toBe(true);
-    expect(getClientFeatureFlags().turn_recap_panel_enabled).toBe(true);
-    expect(getFeatureFlagStates().turn_recap_panel_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { turn_recap_panel_enabled: false } });
-    expect(featureFlags.turnRecapPanelEnabled).toBe(false);
-    expect(getClientFeatureFlags().turn_recap_panel_enabled).toBe(false);
-  });
-
   it.each([
     ['coach_tips_enabled', 'coachTipsEnabled'],
     ['first_match_ladder_enabled', 'firstMatchLadderEnabled'],
@@ -269,21 +260,6 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().daily_guest_play_enabled).toBe(false);
   });
 
-  it('map_gestures_v2_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.mapGesturesV2Enabled).toBe(true);
-    expect(getClientFeatureFlags().map_gestures_v2_enabled).toBe(true);
-    expect(getFeatureFlagStates().map_gestures_v2_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { map_gestures_v2_enabled: false } });
-    expect(featureFlags.mapGesturesV2Enabled).toBe(false);
-    expect(getClientFeatureFlags().map_gestures_v2_enabled).toBe(false);
-  });
-
-  it('turn_clarity_enabled defaults to on and is admin-overridable', () => {
-    expect(featureFlags.turnClarityEnabled).toBe(true);
-    setAdminConfigCacheForTests({ feature_flags: { turn_clarity_enabled: false } });
-    expect(featureFlags.turnClarityEnabled).toBe(false);
-  });
-
   it('tutorial_guided_draft_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.tutorialGuidedDraftEnabled).toBe(false);
     expect(getClientFeatureFlags().tutorial_guided_draft_enabled).toBe(false);
@@ -292,19 +268,9 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().tutorial_guided_draft_enabled).toBe(true);
   });
 
-  it('tutorial_card_fade_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.tutorialCardFadeEnabled).toBe(true);
-    expect(getClientFeatureFlags().tutorial_card_fade_enabled).toBe(true);
-    expect(getFeatureFlagStates().tutorial_card_fade_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { tutorial_card_fade_enabled: false } });
-    expect(featureFlags.tutorialCardFadeEnabled).toBe(false);
-    expect(getClientFeatureFlags().tutorial_card_fade_enabled).toBe(false);
-  });
-
   it('onboarding_tutorial_first_enabled and hero_single_cta_enabled default to on', () => {
     expect(featureFlags.onboardingTutorialFirstEnabled).toBe(true);
     expect(featureFlags.heroSingleCtaEnabled).toBe(true);
-    expect(featureFlags.eraAdvancePayoffEnabled).toBe(true);
   });
 
   it('analytics_events_enabled is off under test so runs stay quiet, on by default elsewhere', () => {
@@ -326,33 +292,6 @@ describe('featureFlags', () => {
     setAdminConfigCacheForTests({ feature_flags: { results_rewards_first_enabled: true } });
     expect(featureFlags.resultsRewardsFirstEnabled).toBe(true);
     expect(getClientFeatureFlags().results_rewards_first_enabled).toBe(true);
-  });
-
-  it('results_footer_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.resultsFooterEnabled).toBe(true);
-    expect(getClientFeatureFlags().results_footer_enabled).toBe(true);
-    expect(getFeatureFlagStates().results_footer_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { results_footer_enabled: false } });
-    expect(featureFlags.resultsFooterEnabled).toBe(false);
-    expect(getClientFeatureFlags().results_footer_enabled).toBe(false);
-  });
-
-  it('translation_dom_guard_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.translationDomGuardEnabled).toBe(true);
-    expect(getClientFeatureFlags().translation_dom_guard_enabled).toBe(true);
-    expect(getFeatureFlagStates().translation_dom_guard_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { translation_dom_guard_enabled: false } });
-    expect(featureFlags.translationDomGuardEnabled).toBe(false);
-    expect(getClientFeatureFlags().translation_dom_guard_enabled).toBe(false);
-  });
-
-  it('game_visible_height_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.gameVisibleHeightEnabled).toBe(true);
-    expect(getClientFeatureFlags().game_visible_height_enabled).toBe(true);
-    expect(getFeatureFlagStates().game_visible_height_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { game_visible_height_enabled: false } });
-    expect(featureFlags.gameVisibleHeightEnabled).toBe(false);
-    expect(getClientFeatureFlags().game_visible_height_enabled).toBe(false);
   });
 
   it('save_account_copy_enabled defaults to on and the admin override is its kill switch', () => {
@@ -546,13 +485,6 @@ describe('featureFlags', () => {
     expect(featureFlags.session30dEnabled).toBe(false);
   });
 
-  it('friendly_guest_names_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.friendlyGuestNamesEnabled).toBe(true);
-    expect(getFeatureFlagStates().friendly_guest_names_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { friendly_guest_names_enabled: false } });
-    expect(featureFlags.friendlyGuestNamesEnabled).toBe(false);
-  });
-
   it('ww2_bomb_ai_enabled defaults to off (dark launch) and is admin-overridable', () => {
     expect(featureFlags.ww2BombAiEnabled).toBe(false);
     expect(getFeatureFlagStates().ww2_bomb_ai_enabled).toEqual({ code_default: false, overridden: false, effective: false });
@@ -583,15 +515,6 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().warfront_enabled).toBe(true);
   });
 
-  it('touch_targets_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.touchTargetsEnabled).toBe(true);
-    expect(getClientFeatureFlags().touch_targets_enabled).toBe(true);
-    expect(getFeatureFlagStates().touch_targets_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { touch_targets_enabled: false } });
-    expect(featureFlags.touchTargetsEnabled).toBe(false);
-    expect(getClientFeatureFlags().touch_targets_enabled).toBe(false);
-  });
-
   it('localization_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.localizationEnabled).toBe(false);
     expect(getClientFeatureFlags().localization_enabled).toBe(false);
@@ -601,15 +524,6 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().localization_enabled).toBe(true);
   });
 
-  it('first_turn_clock_wait_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.firstTurnClockWaitEnabled).toBe(true);
-    expect(getClientFeatureFlags().first_turn_clock_wait_enabled).toBe(true);
-    expect(getFeatureFlagStates().first_turn_clock_wait_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { first_turn_clock_wait_enabled: false } });
-    expect(featureFlags.firstTurnClockWaitEnabled).toBe(false);
-    expect(getClientFeatureFlags().first_turn_clock_wait_enabled).toBe(false);
-  });
-
   it('daily_puzzle_v2_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.dailyPuzzleV2Enabled).toBe(false);
     expect(getClientFeatureFlags().daily_puzzle_v2_enabled).toBe(false);
@@ -617,24 +531,6 @@ describe('featureFlags', () => {
     setAdminConfigCacheForTests({ feature_flags: { daily_puzzle_v2_enabled: true } });
     expect(featureFlags.dailyPuzzleV2Enabled).toBe(true);
     expect(getClientFeatureFlags().daily_puzzle_v2_enabled).toBe(true);
-  });
-
-  it('in_game_mute_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.inGameMuteEnabled).toBe(true);
-    expect(getClientFeatureFlags().in_game_mute_enabled).toBe(true);
-    expect(getFeatureFlagStates().in_game_mute_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { in_game_mute_enabled: false } });
-    expect(featureFlags.inGameMuteEnabled).toBe(false);
-    expect(getClientFeatureFlags().in_game_mute_enabled).toBe(false);
-  });
-
-  it('phone_fortify_fit_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.phoneFortifyFitEnabled).toBe(true);
-    expect(getClientFeatureFlags().phone_fortify_fit_enabled).toBe(true);
-    expect(getFeatureFlagStates().phone_fortify_fit_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { phone_fortify_fit_enabled: false } });
-    expect(featureFlags.phoneFortifyFitEnabled).toBe(false);
-    expect(getClientFeatureFlags().phone_fortify_fit_enabled).toBe(false);
   });
 
   it.each([
@@ -673,12 +569,20 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().early_access_count_enabled).toBe(true);
   });
 
-  it('lobby_new_player_gate_enabled defaults to off and the admin override turns it on', () => {
-    expect(featureFlags.lobbyNewPlayerGateEnabled).toBe(false);
-    expect(getClientFeatureFlags().lobby_new_player_gate_enabled).toBe(false);
-    setAdminConfigCacheForTests({ feature_flags: { lobby_new_player_gate_enabled: true } });
+  it('lobby_new_player_gate_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.lobbyNewPlayerGateEnabled).toBe(true);
     expect(getClientFeatureFlags().lobby_new_player_gate_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { lobby_new_player_gate_enabled: false } });
+    expect(featureFlags.lobbyNewPlayerGateEnabled).toBe(false);
+    expect(getClientFeatureFlags().lobby_new_player_gate_enabled).toBe(false);
+  });
+
+  it('quest_banner_skip_enabled defaults to on and the admin override is its kill switch', () => {
+    expect(featureFlags.questBannerSkipEnabled).toBe(true);
+    expect(getClientFeatureFlags().quest_banner_skip_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { quest_banner_skip_enabled: false } });
+    expect(featureFlags.questBannerSkipEnabled).toBe(false);
+    expect(getClientFeatureFlags().quest_banner_skip_enabled).toBe(false);
   });
 
   it('even_deal_enabled defaults to off, reaches the client, and the admin override turns it on', () => {
@@ -780,30 +684,12 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().tutorial_wrapup_to_match_enabled).toBe(false);
   });
 
-  it('battle_player_colors_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.battlePlayerColorsEnabled).toBe(true);
-    expect(getClientFeatureFlags().battle_player_colors_enabled).toBe(true);
-    expect(getFeatureFlagStates().battle_player_colors_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { battle_player_colors_enabled: false } });
-    expect(featureFlags.battlePlayerColorsEnabled).toBe(false);
-    expect(getClientFeatureFlags().battle_player_colors_enabled).toBe(false);
-  });
-
   it('combat_explain_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.combatExplainEnabled).toBe(false);
     expect(getClientFeatureFlags().combat_explain_enabled).toBe(false);
     setAdminConfigCacheForTests({ feature_flags: { combat_explain_enabled: true } });
     expect(featureFlags.combatExplainEnabled).toBe(true);
     expect(getClientFeatureFlags().combat_explain_enabled).toBe(true);
-  });
-
-  it('battle_armies_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.battleArmiesEnabled).toBe(true);
-    expect(getClientFeatureFlags().battle_armies_enabled).toBe(true);
-    expect(getFeatureFlagStates().battle_armies_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { battle_armies_enabled: false } });
-    expect(featureFlags.battleArmiesEnabled).toBe(false);
-    expect(getClientFeatureFlags().battle_armies_enabled).toBe(false);
   });
 
   it('card_sets_explain_enabled defaults to off and the admin override turns it on', () => {
@@ -814,33 +700,6 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().card_sets_explain_enabled).toBe(true);
   });
 
-  it('desktop_card_cue_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.desktopCardCueEnabled).toBe(true);
-    expect(getClientFeatureFlags().desktop_card_cue_enabled).toBe(true);
-    expect(getFeatureFlagStates().desktop_card_cue_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { desktop_card_cue_enabled: false } });
-    expect(featureFlags.desktopCardCueEnabled).toBe(false);
-    expect(getClientFeatureFlags().desktop_card_cue_enabled).toBe(false);
-  });
-
-  it('tutorial_phone_gate_visible_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.tutorialPhoneGateVisibleEnabled).toBe(true);
-    expect(getClientFeatureFlags().tutorial_phone_gate_visible_enabled).toBe(true);
-    expect(getFeatureFlagStates().tutorial_phone_gate_visible_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { tutorial_phone_gate_visible_enabled: false } });
-    expect(featureFlags.tutorialPhoneGateVisibleEnabled).toBe(false);
-    expect(getClientFeatureFlags().tutorial_phone_gate_visible_enabled).toBe(false);
-  });
-
-  it('game_loading_label_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.gameLoadingLabelEnabled).toBe(true);
-    expect(getClientFeatureFlags().game_loading_label_enabled).toBe(true);
-    expect(getFeatureFlagStates().game_loading_label_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { game_loading_label_enabled: false } });
-    expect(featureFlags.gameLoadingLabelEnabled).toBe(false);
-    expect(getClientFeatureFlags().game_loading_label_enabled).toBe(false);
-  });
-
   it('first_match_easy_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.firstMatchEasyEnabled).toBe(true);
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(true);
@@ -848,15 +707,6 @@ describe('featureFlags', () => {
     setAdminConfigCacheForTests({ feature_flags: { first_match_easy_enabled: false } });
     expect(featureFlags.firstMatchEasyEnabled).toBe(false);
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(false);
-  });
-
-  it('loss_reason_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.lossReasonEnabled).toBe(true);
-    expect(getClientFeatureFlags().loss_reason_enabled).toBe(true);
-    expect(getFeatureFlagStates().loss_reason_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { loss_reason_enabled: false } });
-    expect(featureFlags.lossReasonEnabled).toBe(false);
-    expect(getClientFeatureFlags().loss_reason_enabled).toBe(false);
   });
 
   it('mission_reveal_enabled defaults to on and the admin override is its kill switch', () => {
@@ -884,15 +734,6 @@ describe('featureFlags', () => {
     setAdminConfigCacheForTests({ feature_flags: { custom_lobby_fold_enabled: true } });
     expect(featureFlags.customLobbyFoldEnabled).toBe(true);
     expect(getClientFeatureFlags().custom_lobby_fold_enabled).toBe(true);
-  });
-
-  it('placement_cap_note_enabled defaults to on and the admin override is its kill switch', () => {
-    expect(featureFlags.placementCapNoteEnabled).toBe(true);
-    expect(getClientFeatureFlags().placement_cap_note_enabled).toBe(true);
-    expect(getFeatureFlagStates().placement_cap_note_enabled).toEqual({ code_default: true, overridden: false, effective: true });
-    setAdminConfigCacheForTests({ feature_flags: { placement_cap_note_enabled: false } });
-    expect(featureFlags.placementCapNoteEnabled).toBe(false);
-    expect(getClientFeatureFlags().placement_cap_note_enabled).toBe(false);
   });
 
   it('full_game_evening_enabled defaults to on (promoted with the first-win ladder) and the admin override is its kill switch', () => {

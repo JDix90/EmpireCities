@@ -18,18 +18,13 @@
  *
  * Every other call goes straight to the browser. The first absorbed call in a
  * page load is reported to Sentry, so how often it happens can be seen.
- * `translation_dom_guard_enabled` is the kill switch: off, both calls throw as
- * they always did.
  */
 import * as Sentry from '@sentry/react';
-import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 type GuardedCall = 'removeChild' | 'insertBefore';
 
 let originals: { removeChild: Node['removeChild']; insertBefore: Node['insertBefore'] } | null = null;
 let reported = false;
-
-const guardOn = (): boolean => useFeatureFlagsStore.getState().flags.translation_dom_guard_enabled;
 
 function reportOnce(call: GuardedCall): void {
   if (reported) return;
@@ -60,7 +55,7 @@ export function installTranslationDomGuard(): void {
   originals = { removeChild, insertBefore };
 
   Node.prototype.removeChild = function guardedRemoveChild<T extends Node>(this: Node, child: T): T {
-    if (child.parentNode === this || !guardOn()) return removeChild.call(this, child) as T;
+    if (child.parentNode === this) return removeChild.call(this, child) as T;
     reportOnce('removeChild');
     if (child.parentNode && this.contains(child)) return child.parentNode.removeChild(child);
     return child;
@@ -71,7 +66,7 @@ export function installTranslationDomGuard(): void {
     node: T,
     child: Node | null,
   ): T {
-    if (!child || child.parentNode === this || !guardOn()) return insertBefore.call(this, node, child) as T;
+    if (!child || child.parentNode === this) return insertBefore.call(this, node, child) as T;
     reportOnce('insertBefore');
     return insertBefore.call(this, node, childHolding(this, child)) as T;
   };

@@ -1,5 +1,5 @@
 /**
- * Why a player lost, in one line (`loss_reason_enabled`). The defeat screen's
+ * Why a player lost, in one line. The defeat screen's
  * coaching lists the player's best moves and never said what went wrong; these
  * are the per-player tallies the server keeps on every game
  * (backend game-engine/state/lossTally.ts), sent in the game-over stats.

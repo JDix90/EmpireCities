@@ -12,7 +12,7 @@ import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import InstallOffer from '../install/InstallOffer';
 import ReferralSurvey from './ReferralSurvey';
 import { GalacticGameOverFeedback } from './GalacticFeedback';
-import { useGuestPromptV2Enabled, usePlayOnEnabled, useReferralSurveyEnabled, useResultsFooterEnabled, useResultsRewardsFirstEnabled } from '../../store/featureFlagsStore';
+import { useGuestPromptV2Enabled, usePlayOnEnabled, useReferralSurveyEnabled, useResultsRewardsFirstEnabled } from '../../store/featureFlagsStore';
 import ResultsRewards, { type ResultsXpSummary } from './ResultsRewards';
 import type { PlayOnOffer } from '../../store/playOnStore';
 import PlayOnPanel from './PlayOnPanel';
@@ -38,9 +38,8 @@ import { APP_NAME } from '../../constants/brand';
 import { formatSecretMissionReveal, type MapNameLookup, type SecretMissionLike } from '../../utils/mapDisplayNames';
 import { getFastCombatPreference } from '../../utils/userPreferences';
 import { useGameStore } from '../../store/gameStore';
-import { useBattleArmiesEnabled } from '../../store/featureFlagsStore';
-import { useLossReasonEnabled, useLossReasonPlayEnabled, useMissionRevealEnabled } from '../../store/featureFlagsStore';
-import { useBattlePlayerColorsEnabled, useCombatExplainEnabled } from '../../store/featureFlagsStore';
+import { useLossReasonPlayEnabled, useMissionRevealEnabled } from '../../store/featureFlagsStore';
+import { useCombatExplainEnabled } from '../../store/featureFlagsStore';
 import CombatDicePairs from './CombatDicePairs';
 import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
 import { attackOddsKey, formatWinChance, useAttackOdds, WIN_CHANCE_HINT } from '../../hooks/useAttackOdds';
@@ -305,9 +304,8 @@ export interface DraftSummaryModalData {
 }
 
 /**
- * The advancing player's "payoff" moment (dark-launched behind
- * era_advance_payoff_enabled). Content is captured client-side at advance time
- * from the pre-advance era preview + the arriving era id.
+ * The advancing player's "payoff" moment. Content is captured client-side at
+ * advance time from the pre-advance era preview + the arriving era id.
  */
 export interface EraAdvanceModalData {
   type: 'era_advance';
@@ -412,7 +410,7 @@ function diceSizing(maxDice: number, compact = false): { box: string; text: stri
 
 /**
  * `#rrggbb` (or `#rgb`) at the given opacity, or null for anything else. A die
- * tinted in its roller's map colour (battle_player_colors_enabled) needs one.
+ * tinted in its roller's map colour needs one.
  */
 function tint(color: string, alpha: number): string | null {
   const m = color.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
@@ -586,11 +584,10 @@ export function CombatResultView({
   const defenderSkin = diceLook(cosmeticsOf(result.defenderId)?.dice);
 
   const isDefending = perspective === 'defender';
-  // `battle_armies_enabled`: the armies left on both territories, read from the
-  // viewer's own board (fog-filtered, so a hidden count stays hidden), once the
-  // dice settle. Only on the viewer's own attack, the result the board is
+  // The armies left on both territories, read from the viewer's own board
+  // (fog-filtered, so a hidden count stays hidden), once the dice settle. Only on the viewer's own attack, the result the board is
   // current for: a replayed incoming attack may be behind it.
-  const battleArmies = useBattleArmiesEnabled() && perspective === 'attacker';
+  const battleArmies = perspective === 'attacker';
   const fromUnits = useGameStore((s) => (result.fromId ? s.gameState?.territories[result.fromId]?.unit_count : undefined));
   const toUnits = useGameStore((s) => (result.toId ? s.gameState?.territories[result.toId]?.unit_count : undefined));
   const armiesLeft = (units: number | undefined, testId: string) =>
@@ -602,13 +599,12 @@ export function CombatResultView({
         {units} left
       </span>
     ) : null;
-  // `battle_player_colors_enabled`: each side in its player's map colour, not
-  // red for the attacker and blue for the defender (which read backwards for
-  // a blue attacker and a red defender). A neutral side keeps the old colour.
-  const playerColors = useBattlePlayerColorsEnabled();
+  // Each side in its player's map colour, not red for the attacker and blue
+  // for the defender (which read backwards for a blue attacker and a red
+  // defender). A neutral side keeps the old colour.
   const players = useGameStore((s) => s.gameState?.players);
   const colorOf = (id: string | null | undefined): string | null =>
-    (playerColors && id ? players?.find((p) => p.player_id === id)?.color ?? null : null);
+    (id ? players?.find((p) => p.player_id === id)?.color ?? null : null);
   const attackerColor = colorOf(result.attackerId);
   const defenderColor = colorOf(result.defenderId);
   // The losses take the same colours as the names above them: the attacker's
@@ -1515,7 +1511,6 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   // save_account_copy_enabled: the account box says it the way every guest surface does.
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const emailSave = useEmailAccountSaveEnabled();
-  const resultsFooter = useResultsFooterEnabled();
   // funnel_events_v2_enabled: the results screen's save box, shown against pressed.
   useTrackShown(
     { event: 'save_prompt_shown', surface: 'results' },
@@ -1525,7 +1520,6 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   // under the outcome, the territory chart next, coaching in its own tab.
   const rewardsFirst = useResultsRewardsFirstEnabled();
   const playOnEnabled = usePlayOnEnabled();
-  const lossReasonOn = useLossReasonEnabled();
   const lossReasonPlayOn = useLossReasonPlayEnabled();
   const missionRevealOn = useMissionRevealEnabled();
   const [showReferralSurvey] = useState(() =>
@@ -1697,11 +1691,11 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
     .filter((p) => winnerIds.includes(p.player_id) && p.player_id !== selfId)
     .map((p) => p.username);
   const allyName = isAlliance ? coWinnerNames[0] : undefined;
-  // Why the viewer lost, in one line (loss_reason_enabled), from the tallies
+  // Why the viewer lost, in one line, from the tallies
   // the game kept for them. Not for an objective day, whose result is the
   // challenge, a scored puzzle, or a game nobody finished.
   const viewerSeat = data.viewerId ? data.players.find((p) => p.player_id === data.viewerId) : undefined;
-  const whyLost = lossReasonOn && !data.isWinner && viewerSeat && !viewerSeat.is_ai
+  const whyLost = !data.isWinner && viewerSeat && !viewerSeat.is_ai
     && !isAbandoned && !daily && !data.puzzle_review
     ? lossReason(viewerSeat, { play: lossReasonPlayOn })
     : null;
@@ -1742,8 +1736,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const showShareClip = showWatchReplay && !!onShareClip;
   const tertiaryCount = 1 + (showWatchReplay ? 1 : 0) + (showShareClip ? 1 : 0) + (showChallenge ? 1 : 0);
 
-  // The way out of the results. `results_footer_enabled` pins it in a footer
-  // at the bottom of the scroll; off, it sits after the chart and coaching.
+  // The way out of the results, pinned in a footer at the bottom of the scroll.
   const primaryActions = (
     <>
       {/* The first-win ladder (first_match_ladder_enabled): Try again after a
@@ -2482,8 +2475,6 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         'flex flex-col gap-3 w-full min-w-0 transition-all duration-500 delay-600',
         showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}>
-        {!resultsFooter && primaryActions}
-
         <div
           className={clsx(
             'grid gap-2 w-full min-w-0',
@@ -2546,25 +2537,23 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         </div>
       </div>
 
-      {resultsFooter && (
-        <div
-          data-testid="gameover-footer"
-          className={clsx(
-            // Pinned to the bottom of the results' scroll, bleeding to the
-            // card's edges, so Rematch and Return to Lobby are always in view.
-            // -bottom-8 cancels the card's py-8: sticky stops at the padding
-            // edge, which left 2rem of scrolling results showing below it.
-            // Opaque, in the colour the card's gradient ends on, so the results
-            // scrolling under it do not show through the buttons.
-            'sticky -bottom-8 z-10 -mx-6 sm:-mx-8 -mb-8 mt-4 px-6 sm:px-8 pt-3 pb-5',
-            'flex flex-col gap-2 border-t border-white/10 bg-[rgb(15,17,23)]',
-            'transition-opacity duration-500 delay-600',
-            showContent ? 'opacity-100' : 'opacity-0',
-          )}
-        >
-          {primaryActions}
-        </div>
-      )}
+      <div
+        data-testid="gameover-footer"
+        className={clsx(
+          // Pinned to the bottom of the results' scroll, bleeding to the
+          // card's edges, so Rematch and Return to Lobby are always in view.
+          // -bottom-8 cancels the card's py-8: sticky stops at the padding
+          // edge, which left 2rem of scrolling results showing below it.
+          // Opaque, in the colour the card's gradient ends on, so the results
+          // scrolling under it do not show through the buttons.
+          'sticky -bottom-8 z-10 -mx-6 sm:-mx-8 -mb-8 mt-4 px-6 sm:px-8 pt-3 pb-5',
+          'flex flex-col gap-2 border-t border-white/10 bg-[rgb(15,17,23)]',
+          'transition-opacity duration-500 delay-600',
+          showContent ? 'opacity-100' : 'opacity-0',
+        )}
+      >
+        {primaryActions}
+      </div>
 
       {/* Share preview overlay */}
       {shareOpen && shareImageUrl && (

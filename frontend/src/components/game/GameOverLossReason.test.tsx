@@ -1,6 +1,6 @@
 /**
- * Why you lost (`loss_reason_enabled`): the defeat screen's coaching listed the
- * player's best moves and never said what went wrong. With the flag on, one
+ * Why you lost: the defeat screen's coaching listed the
+ * player's best moves and never said what went wrong. Now one
  * line under how the game ended names the strongest reason from the tallies
  * the server sends for the viewer.
  */
@@ -34,9 +34,6 @@ function gameOver(overrides: Partial<GameOverModalData> = {}): GameOverModalData
   } as GameOverModalData;
 }
 
-const setFlag = (on: boolean) =>
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, loss_reason_enabled: on } }));
-
 const line = () => screen.queryByTestId('gameover-loss-reason');
 
 describe('why you lost', () => {
@@ -50,10 +47,8 @@ describe('why you lost', () => {
       isAuthenticated: true,
     });
   });
-  afterEach(() => setFlag(true));
 
   it('names the viewer\'s own strongest reason under how the game ended', () => {
-    setFlag(true);
     render(<ActionModal data={gameOver()} onDismiss={() => {}} />);
     expect(line()?.textContent).toBe(
       'Why you lost' +
@@ -63,7 +58,6 @@ describe('why you lost', () => {
   });
 
   it('says nothing to the winner, or when nothing stands out', () => {
-    setFlag(true);
     const { unmount } = render(<ActionModal data={gameOver({ isWinner: true })} onDismiss={() => {}} />);
     expect(line()).toBeNull();
     unmount();
@@ -75,19 +69,11 @@ describe('why you lost', () => {
   });
 
   it('says nothing for a game nobody finished, or an objective day', () => {
-    setFlag(true);
     const { unmount } = render(<ActionModal data={gameOver({ victory_condition: 'abandoned' })} onDismiss={() => {}} />);
     expect(line()).toBeNull();
     unmount();
     render(<ActionModal data={gameOver({ daily_challenge: { outcome: 'failed', goal: 'Hold Ukraine' } })} onDismiss={() => {}} />);
     expect(line()).toBeNull();
-  });
-
-  it('is the defeat screen as before with the flag off', () => {
-    setFlag(false);
-    render(<ActionModal data={gameOver()} onDismiss={() => {}} />);
-    expect(line()).toBeNull();
-    expect(screen.queryByText('Why you lost')).toBeNull();
   });
 });
 
@@ -102,7 +88,7 @@ describe('why you lost: how you played (loss_reason_play_enabled)', () => {
       isAuthenticated: true,
     });
   });
-  afterEach(() => useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, loss_reason_enabled: true, loss_reason_play_enabled: true } })));
+  afterEach(() => useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, loss_reason_play_enabled: true } })));
 
   const neverAttacked = () => {
     const data = gameOver();

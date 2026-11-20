@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import { canOfferBlitz } from '../../utils/blitzEligibility';
 import { plural } from '../../utils/plural';
-import { useAttackBlitzEnabled, usePhoneFortifyFitEnabled, usePhoneSheetFitEnabled, usePlacementCapNoteEnabled } from '../../store/featureFlagsStore';
+import { useAttackBlitzEnabled, usePhoneSheetFitEnabled } from '../../store/featureFlagsStore';
 import { getFastCombatPreference } from '../../utils/userPreferences';
 import { isFogHidden } from '../../utils/fogVisibility';
 import BuildingPanel from './BuildingPanel';
@@ -458,19 +458,16 @@ function TerritoryPanelContent({
   // offers a placement the server would refuse (PT-009).
   const deployCapLeft = gameState.draft_deploy_caps?.[selectedTerritory];
   const placeablePool = deployCapLeft == null ? draftPool : Math.min(draftPool, deployCapLeft);
-  // `placement_cap_note_enabled`: say how many more and why, in place of the
-  // terse label suffix and the "cap reached" line.
-  const placementCapNote = usePlacementCapNoteEnabled();
+  // Say how many more and why. A cap that is reached always binds, so the
+  // note is there whenever the dial is not.
   const deployCapBinds = deployCapLeft != null && deployCapLeft < draftPool;
-  const deployCapNote =
-    deployCapBinds && !placementCapNote ? ` · stability cap: ${deployCapLeft} more here` : '';
   const deployCapReached = draftPool > 0 && placeablePool <= 0;
-  const capNote = placementCapNote && deployCapBinds
+  const capNote = deployCapBinds
     ? <PlacementCapNote stability={tState.stability} capLeft={deployCapLeft} />
     : null;
   // The phone's sheet puts the note under the dial, so its label keeps a
   // short reason in view.
-  const phoneCapLabel = capNote ? ` · unsettled: ${deployCapLeft} more here` : deployCapNote;
+  const phoneCapLabel = capNote ? ` · unsettled: ${deployCapLeft} more here` : '';
 
   const owner = gameState.players.find((p) => p.player_id === tState.owner_id);
   const myPlayer = resolvedViewerPlayerId
@@ -786,16 +783,14 @@ function TerritoryPanelContent({
     });
   }, [isMyTurn, gameState, fortifyNeighborSourceId, mapConnections, territoryNameById, worldNameByTerritoryId, myPlayerId]);
 
-  // Phone fortify (`phone_fortify_fit_enabled`): at the fixed peek height the
+  // Phone fortify: at the fixed peek height the
   // header, owner and amount dial filled the sheet and the destinations sat
   // below the fold. While a fortify source is picked, the peek snap grows to
   // the measured bottom of the first destination (index.css caps it at the
   // full snap), and if the header still pushes that row out of view the sheet
   // scrolls to the dial. A drag to another snap hands control back.
-  const phoneFortifyFit = usePhoneFortifyFitEnabled();
   const fortifySectionRef = React.useRef<HTMLDivElement>(null);
   const fortifyFitActive =
-    phoneFortifyFit &&
     isMobileActionMode &&
     gameState.phase === 'fortify' &&
     fortifyNeighbors.length > 0 &&
@@ -936,13 +931,7 @@ function TerritoryPanelContent({
           </div>
           <div>
             <label className="label text-xs">Place reinforcements ({draftPool} remaining{phoneCapLabel})</label>
-            {deployCapReached ? (
-              !capNote && (
-                <p className="text-xs text-amber-300/90" role="status">
-                  Stability cap reached — this territory can take no more units this turn. Place the rest elsewhere.
-                </p>
-              )
-            ) : (
+            {!deployCapReached && (
               <QuickPlace
                 pool={placeablePool}
                 size="lg"
@@ -1303,7 +1292,7 @@ function TerritoryPanelContent({
                   <span className="text-xs font-mono text-bf-text">{tState.population} / 10</span>
                 </div>
               )}
-              {placementCapNote && tState.stability >= 30 && tState.stability < SETTLED_STABILITY && (
+              {tState.stability >= 30 && tState.stability < SETTLED_STABILITY && (
                 <p className="text-xs text-amber-300/90 mt-1">
                   ⚠ Unsettled — takes only a few reinforcements a turn until stability reaches {SETTLED_STABILITY}
                   {deployCapLeft != null ? ` (${deployCapLeft} more ${deployCapLeft === 1 ? 'unit' : 'units'} here this turn)` : ''}
@@ -1397,15 +1386,9 @@ function TerritoryPanelContent({
           {/* Draft (always at top if available) */}
           {isMine && gameState.phase === 'draft' && draftPool > 0 && !isMobileDraftPlacementMode && (
             <div>
-              <label className="label text-xs">Place Reinforcements ({draftPool} remaining{deployCapNote})</label>
+              <label className="label text-xs">Place Reinforcements ({draftPool} remaining)</label>
               {capNote}
-              {deployCapReached ? (
-                !capNote && (
-                  <p className="text-xs text-amber-300/90" role="status">
-                    Stability cap reached — this territory can take no more units this turn. Place the rest elsewhere.
-                  </p>
-                )
-              ) : (
+              {!deployCapReached && (
                 <QuickPlace
                   pool={placeablePool}
                   onPlace={(n) => onDraft(selectedTerritory, n)}

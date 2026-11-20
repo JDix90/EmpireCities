@@ -1,16 +1,12 @@
 /**
- * Game loading (`game_loading_label_enabled`): Play Free Now goes to /tutorial,
- * then /game/:id, and each page's code downloads first. On a phone line that
- * was 8 seconds of grey boxes and the wordmark.
+ * Game loading: Play Free Now goes to /tutorial, then /game/:id, and each
+ * page's code downloads first. On a phone line that was 8 seconds of grey
+ * boxes and the wordmark.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import GameLoadingFallback, { SLOW_LOAD_MS, useGameLoadingKind } from './GameLoadingFallback';
-import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
-
-const setFlag = (on: boolean) =>
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, game_loading_label_enabled: on } }));
 
 function Kind() {
   return <span data-testid="kind">{String(useGameLoadingKind())}</span>;
@@ -24,18 +20,14 @@ const kindAt = (entry: string | { pathname: string; state?: unknown }) => {
 
 describe('game loading label', () => {
   afterEach(() => {
-    setFlag(true);
     vi.useRealTimers();
   });
 
-  it('names the tutorial and the game routes, and only with the flag on', () => {
-    setFlag(true);
+  it('names the tutorial and the game routes, and no other', () => {
     expect(kindAt('/tutorial?start=1')).toBe('practice');
     expect(kindAt({ pathname: '/game/g1', state: { practiceMatch: true } })).toBe('practice');
     expect(kindAt('/game/g1')).toBe('match');
     expect(kindAt('/lobby')).toBe('null');
-    setFlag(false);
-    expect(kindAt('/game/g1')).toBe('null');
   });
 
   it('says what is loading, then owns up to a slow connection', () => {

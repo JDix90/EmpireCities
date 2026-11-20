@@ -75,12 +75,6 @@ const CLIENT_FEATURE_FLAGS = [
       'The end of a game leads with what it paid. Under the outcome comes a level bar that fills from where the player started to where they are now, with a "Level up" when it crosses one, then the XP split between the game and each medal, the gold, and the medals themselves, each with its XP. Then the turns and rating, the chart of each player\u2019s share of the map over the game, and the come-back and save prompts. Final standings, match stats, coaching and the chronicle sit in tabs below. Before, a win could read "+105 XP" when medals had paid 1,000 more and taken the player up two levels, which the screen never showed. Off by default; off, the results are exactly as before.',
   },
   {
-    key: 'results_footer_enabled',
-    label: 'Results: pinned way out',
-    description:
-      'At the end of a game, Rematch and Return to Lobby sit in a footer pinned to the bottom of the results, instead of below the chart, coaching and guest box, which took a scroll on a laptop and five swipes on a phone. A guest\u2019s Return to Lobby then goes straight to the lobby: the results already offered saving, so the post-game signup nudge would be the same ask twice. On by default; switching it off gives the results exactly as before.',
-  },
-  {
     key: 'ranked_leaderboard_enabled',
     label: 'Ranked ladder surfaces',
     description:
@@ -165,12 +159,6 @@ const CLIENT_FEATURE_FLAGS = [
       'In a player\u2019s first match, the phase button (Begin Attack, Begin Fortify) is plain rather than gold until that phase\u2019s own action is done: all units placed, or one attack made. The gold button was always the one that left the phase, so a player who only pressed it placed nothing by hand, never attacked and lost. The button always works; only its colour changes. End Turn stays gold. On by default; switching it off keeps the gold button throughout.',
   },
   {
-    key: 'turn_recap_panel_enabled',
-    label: 'Desktop: own-turn recap in the panel',
-    description:
-      'On desktop, the end of the player\u2019s own turn adds a \u201cYour turn\u201d row (battles, captures, units placed and moved) to the non-blocking recap panel in the corner, instead of opening the \u201cYour Turn Complete\u201d modal that stood between every turn and the next. Phones already skip that modal. On by default; switching it off gives the turn summary exactly as before.',
-  },
-  {
     key: 'ai_attack_grind_enabled',
     label: 'AI presses attacks',
     description:
@@ -204,7 +192,13 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'lobby_new_player_gate_enabled',
     label: 'Lobby: Getting Started only for new players',
     description:
-      'The lobby\u2019s new-player layout goes only to a player with no XP: the Getting Started block (tutorial, Quick Match, Daily Challenge), with the Daily Challenge row beside it held back. It went to every player at any XP, because the check read an onboarding counter the server always sends. With this on, a player who has finished a game gets the regular lobby, Daily Challenge row included. Off by default; off, the lobby is exactly as before.',
+      'The lobby\u2019s new-player layout goes only to a player with no XP: the Getting Started block (tutorial, Quick Match, Daily Challenge), with the Daily Challenge row beside it held back. It went to every player at any XP, because the check read an onboarding counter the server always sends. With this on, a player who has finished a game gets the regular lobby, Daily Challenge row included. On by default; off, the lobby is exactly as before.',
+  },
+  {
+    key: 'quest_banner_skip_enabled',
+    label: 'Lobby: \u201cSkip all\u201d on the quest banner sticks',
+    description:
+      '\u201cSkip all\u201d on the lobby\u2019s Getting Started quest banner hides it for good. The server refused the skip for every player (it asked for an onboarding stage that nothing sets), so the banner came back on the next visit, and with Lobby clean-up on the button did nothing at all. With this on, any signed-in player, guests included, can skip; the server remembers it and the lobby keeps the banner away. Skipping only hides the banner: the quests still complete and pay their gold as the player does them. On by default; off, all as before.',
   },
   {
     key: 'overlay_queue_enabled',
@@ -374,18 +368,6 @@ const CLIENT_FEATURE_FLAGS = [
       'Show the Live nav, lobby Watch entries, and the live-games list, and allow spectator joins. Off by default until there is enough concurrent traffic for the list to look alive.',
   },
   {
-    key: 'turn_clarity_enabled',
-    label: 'Turn clarity (in-game)',
-    description:
-      'Show the in-game phase-progression bar, valid source/target highlighting, and reinforcement undo. Presentational only — the server stays authoritative. On by default.',
-  },
-  {
-    key: 'map_gestures_v2_enabled',
-    label: 'Map gestures: zoom around the fingers',
-    description:
-      'On the flat map, a pinch zooms around the point between the fingers and the mouse wheel around the cursor, instead of around the map\u2019s top-left corner; panning stops while some land is still on screen; and a pinch never counts as half of a double-tap. A pinch on a phone used to slide the board off-screen, leaving a blank map that only Reset brought back. The globe is unchanged. On by default; switching it off gives the map\u2019s gestures exactly as before.',
-  },
-  {
     key: 'onboarding_tutorial_first_enabled',
     label: 'Guest → tutorial first',
     description:
@@ -396,18 +378,6 @@ const CLIENT_FEATURE_FLAGS = [
     label: 'Tutorial: guided first turn',
     description:
       'The tutorial\u2019s place, attack and fortify cards, the first three that ask the player to do something, each show one short step at a time instead of a paragraph: tap a territory, press All then Place, press the gold button; attack one named territory from another; fortify or end the turn. The card stays small and clear of the board, offers one button that moves the player on (\u201cPlace them for me\u201d, \u201cShow me\u201d, \u201cEnd my turn\u201d), and shows Exit as a small link instead of the card\u2019s only button. Changes who reaches the first match, so read first-match numbers before and after separately. Off by default; off, the cards are the paragraphs they were.',
-  },
-  {
-    key: 'tutorial_card_fade_enabled',
-    label: 'Tutorial card: fade when there is more',
-    description:
-      'When a tutorial card\u2019s text runs past the bottom of the card, a fade sits above the buttons until the player scrolls to the end, so a clipped card reads as one with more to read. The welcome card was cut mid-sentence on a 768px laptop, an iPhone 13 and an SE, behind a scrollbar that is nearly invisible. On by default; switching it off gives the tutorial card exactly as before.',
-  },
-  {
-    key: 'era_advance_payoff_enabled',
-    label: 'Era-advance payoff',
-    description:
-      'When a player advances an era, show a celebratory modal (era entered, newly-unlocked signature ability, legacy carry, vulnerability window) instead of just a toast. Client-side only. On by default.',
   },
   {
     key: 'hero_single_cta_enabled',
@@ -462,12 +432,6 @@ const CLIENT_FEATURE_FLAGS = [
     label: 'WW2 bots and the Atom Bomb',
     description:
       'Hard and expert bots research toward Manhattan Project, fire the Atom Bomb at a target worth it (a big stack, its buildings, a tile they can walk into) and walk in. The bomb itself is unchanged: once per game, behind Panzer Tactics. Applies only to games that start in WW2; a climb from an earlier era keeps today\'s bomb. Baked into each game at creation. OFF by default (dark launch) — Phase 1 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
-  },
-  {
-    key: 'friendly_guest_names_enabled',
-    label: 'Friendly guest names',
-    description:
-      'A new guest is named like \u201cSwiftFalcon_48213\u201d (an adjective, an animal and five digits) instead of \u201cGuest_\u201d and 8 hex characters, the name other players see in turn order, battles and results. Only guests created from then on; existing guests keep their names, and a guest still picks their own name on signing up. On by default; switching it off gives the Guest_ names exactly as before.',
   },
   {
     key: 'session_30d_enabled',
@@ -680,52 +644,16 @@ const CLIENT_FEATURE_FLAGS = [
       'Serve the daily as a decision puzzle on days whose set-piece carries a scripted-opponent plan: a short clock, the opponent\u2019s plan shown up front, every move graded against an exact solver, accuracy on the board. Days without a plan, Thursday and Sunday stay v1 either way. Off by default (dark launch) \u2014 off is the daily exactly as before.',
   },
   {
-    key: 'first_turn_clock_wait_enabled',
-    label: 'First turn clock waits for the briefing',
-    description:
-      'A player\'s first turn starts its clock when they close the game-start briefing (turn order, how to win, starting resources), however long they spend reading it, and the countdown holds while it is open. Before, the clock reset only if they closed it within 20 seconds. Later turns are unchanged. On by default; switching it off gives the clock exactly as before.',
-  },
-  {
     key: 'first_match_easy_enabled',
     label: 'Easy first match',
     description:
       'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. On by default; switching it off gives Quick Match exactly as before.',
   },
   {
-    key: 'game_loading_label_enabled',
-    label: 'Game loading: label the wait',
-    description:
-      'While a game\u2019s page downloads after Play Free Now or a match start, the loading screen says \u201cSetting up your practice match\u201d (or \u201cyour match\u201d) with a moving bar, and after a few seconds that a slow connection can take a little longer, instead of grey boxes and the wordmark, which a phone showed for about 8 seconds. On by default; switching it off gives the loading screen exactly as before.',
-  },
-  {
-    key: 'tutorial_phone_gate_visible_enabled',
-    label: 'Phone tutorial: keep the era gate in view',
-    description:
-      'On a phone, the core tutorial\u2019s \u201cAdvance to Medieval\u201d card arrives folded to a one-line strip over the open tech tree, instead of opening over the research buttons it asks the player to press; a tap unfolds it. The economy and era cards also show only their main message on a phone, without the extra detail. Desktop is unchanged. On by default; switching it off gives the tutorial exactly as before.',
-  },
-  {
     key: 'card_sets_explain_enabled',
     label: 'Cards explain themselves',
     description:
       'The phone\u2019s cards tray and the desktop card list say what the next set pays (\u201cNext set +6 units\u201d) and what a set is (three of a kind, one of each, or a pair plus a wild); they mark the cards that make a set, dim the cards that cannot complete the player\u2019s pick, say whether three picked cards are a set before they redeem, and offer \u201cTrade a set for +N units\u201d in one tap. On a phone the cards button lights up during the player\u2019s draft while a set is ready, instead of waiting until five cards force the tray open. Redemption and its rules are unchanged. Off by default; off, the cards are exactly as before.',
-  },
-  {
-    key: 'desktop_card_cue_enabled',
-    label: 'Desktop card trade prompt',
-    description:
-      'On desktop, during the player\u2019s own draft, when their hand holds a valid set of territory cards, the sidebar shows \u201cTrade 3 cards for +N units\u201d under the units to place, one click to redeem. Today desktop cards sit in a collapsed row in the Status tab with no prompt, while every bot trades each set the moment it has one. Phones already badge and open their cards tray. On by default; switching it off gives the sidebar exactly as before.',
-  },
-  {
-    key: 'battle_armies_enabled',
-    label: 'Battle result: armies left',
-    description:
-      'When the dice settle on the player\u2019s own attack, each territory name in the battle result shows the armies left on it, so a player no longer has to remember them; it follows each Attack again. A blitz labels its dice \u201cLast roll of N\u201d and its losses as the total, where it showed the last exchange\u2019s dice under every exchange\u2019s losses. Counts come from the player\u2019s own board, so fog of war is respected. On by default; switching it off gives the battle result exactly as before.',
-  },
-  {
-    key: 'battle_player_colors_enabled',
-    label: 'Battle dice in player colours',
-    description:
-      'In a battle result, each side\'s dice, name and losses take that player\'s map colour, instead of red for the attacker and blue for the defender, which read backwards whenever the attacker was blue on the map and the defender red. A dice skin keeps its look; only its ring takes the colour. A neutral defender keeps blue. On by default; switching it off gives the battle result exactly as before.',
   },
   {
     key: 'combat_explain_enabled',
@@ -746,12 +674,6 @@ const CLIENT_FEATURE_FLAGS = [
       'While a player\u2019s next Quick Match is their first (Easy first match on, no finished game yet), Quick Match becomes the lobby\u2019s gold button and comes first; Full Game is shown beside it as the secondary choice. Without it a newcomer\u2019s most prominent option is Full Game, which runs to its round cap in nearly every simulated game. Needs Easy first match on to have any effect. On by default; switching it off gives the lobby exactly as before.',
   },
   {
-    key: 'phone_fortify_fit_enabled',
-    label: 'Phone fortify: show the destinations',
-    description:
-      'On a phone, when a player picks a territory to fortify from, the bottom sheet grows just enough to show the amount and the first row of destinations together, up to the sheet\u2019s full height, so the map stays the larger half. At the fixed default height the destinations sat below the fold and a player had to know to swipe the sheet up. Desktop is unchanged. On by default; switching it off gives the sheet exactly as before.',
-  },
-  {
     key: 'phone_sheet_fit_enabled',
     label: 'Phone sheet: show the main action',
     description:
@@ -768,12 +690,6 @@ const CLIENT_FEATURE_FLAGS = [
     label: 'Solo games have no turn clock',
     description:
       'A game with one human and only bots is untimed: Quick Match (the first match included), Full Game and campaign stages start with no turn clock, and Custom Game\u2019s Turn Timer defaults to No Timer while every other seat is a bot (a timer the player picks is kept). Nobody waits on a solo player, and a player who leaves is already handled: their seat waits and the game is closed as abandoned. The clock only ended turns for players still at the screen. Daily Challenge and the tutorial were already untimed. Multiplayer and ranked are unchanged. On by default; switching it off gives every game its clock as before.',
-  },
-  {
-    key: 'in_game_mute_enabled',
-    label: 'In-game mute switch',
-    description:
-      'Adds a \u201cSound and music\u201d switch to the in-game Tools & options, on desktop and in the phone menu: off mutes both sound effects and music, on brings both back, using the same settings as the Settings page. Music starts on the first tap of a game, and the only way to silence it was to leave for Settings. On by default; switching it off gives the tools exactly as before.',
   },
   {
     key: 'full_game_evening_enabled',
@@ -794,12 +710,6 @@ const CLIENT_FEATURE_FLAGS = [
       'Offers players a way to put Borderfall on their home screen, which until now the site mentioned only as a line of text when an iPhone player asked for notifications. In Chrome, Edge and Samsung Internet, on Android and desktop, an Install button opens the browser\u2019s own install dialog: one tap and one confirmation. On an iPhone or iPad, where Apple gives a website no way to do it, the button opens a three-step guide with the Share icon and an arrow to where it sits; in an app\u2019s built-in browser it says to open Safari first. Offered in the lobby (never to a player who has not finished a game), on the results screen after a win, and always in Settings \u2192 Notifications; \u201cNot now\u201d hides the lobby and results offers for 30 days. The four notification prompts that told iPhone players \u201cShare \u2192 Add to Home Screen\u201d get a \u201cShow me how\u201d button, and a player who opens the installed app is asked about notifications in the lobby whatever games they have. Chrome\u2019s own install banner is suppressed while this is on, so the offer comes at our moment and not on first visit. Dark-launched off.',
   },
   {
-    key: 'placement_cap_note_enabled',
-    label: 'Explain the placement cap',
-    description:
-      'When the player places units on an unsettled territory (stability under 50, as every newly conquered one is), the territory panel says how many more it takes this turn and why: its stability, that the limit lifts at 50, and that conquered land starts at 30 and settles a little each turn. Replaces the terse \u201cstability cap: N more here\u201d. On by default; switching it off gives the panel exactly as before.',
-  },
-  {
     key: 'custom_lobby_fold_enabled',
     label: 'Custom Game: fold advanced options',
     description:
@@ -812,28 +722,10 @@ const CLIENT_FEATURE_FLAGS = [
       'The Custom Game form gets a round limit beside the victory conditions. By default it is the one Quick Match gives the chosen ending: 120 rounds for Domination, 90 for Capitals or a secret mission, 60 for 65% of the board, 45 for half the board. The host can pick 45, 60, 90, 120 or 150 rounds, or no limit. When the last round ends, whoever holds the most territory wins. Without a limit a Domination game against bots seldom ends. Space Age and Galactic Age keep the 90-round limit they already have. Off by default (dark launch): off is the form exactly as before, with no limit.',
   },
   {
-    key: 'loss_reason_enabled',
-    label: 'Say why the player lost',
-    description:
-      'The defeat screen shows one line on why the player lost, under how the game ended, from what the game counted: the turn their territories fell furthest (\u201cyour territories fell from 9 to 4\u201d), turns they ended holding a card set they never traded, or armies lost to event cards. Before, its coaching listed only their best moves. On by default; switching it off gives the defeat screen exactly as before.',
-  },
-  {
     key: 'mission_reveal_enabled',
     label: 'Reveal secret missions at game over',
     description:
       'When a game is won by a secret mission, or by two allies completing their alliance mission, the game-over screen lists every player\u2019s mission and marks the one that was completed. Before, it said only \u201cSecret Mission completed\u201d and never which mission, or what anyone else had been after. On by default; switching it off gives the game-over screen exactly as before.',
-  },
-  {
-    key: 'translation_dom_guard_enabled',
-    label: 'Translated pages don\u2019t crash',
-    description:
-      'When a player has their browser translate the page (Edge, Chrome, the Google Translate extension), the translator swaps the page\u2019s words for its own, and React, which still expects the old ones, crashed whenever a label appeared or disappeared or an icon was swapped in front of one: the page fell to its error screen. With this on, the page carries on instead. A label the translator already replaced may stay on screen until that part of the page is drawn again. The first time in a page load it happens is reported to Sentry. On by default; this is its kill switch, and off the page crashes as before.',
-  },
-  {
-    key: 'game_visible_height_enabled',
-    label: 'Game screen fits the visible screen',
-    description:
-      'The game screen is as tall as what the browser actually shows. It was sized to the screen with Safari\u2019s toolbar hidden, so on an iPhone with the toolbar showing, the bottom of the game, the phone\u2019s bar with the phase, the button that ends it and the game menu, could sit under the toolbar. The replay page follows the same switch, for its playback controls. Browsers that can\u2019t measure the visible height keep the old size. On by default; this is its kill switch, and off is the game screen exactly as before.',
   },
   {
     key: 'store_v2_enabled',
@@ -846,12 +738,6 @@ const CLIENT_FEATURE_FLAGS = [
     label: 'Localized landing & tutorial',
     description:
       'Show the landing page and the tutorial in the player\u2019s language (Spanish, Brazilian Portuguese, German, French, Polish) and add a language switcher to both; a stored choice wins, then the browser language. Off by default while the translations await native review \u2014 off means English for everyone, exactly as before. Client-only: the in-game HUD stays English either way.',
-  },
-  {
-    key: 'touch_targets_enabled',
-    label: 'Phone touch targets',
-    description:
-      'On touch screens, gives small game controls a touch area of at least 44 px: the tutorial card\u2019s collapse, the territory sheet\u2019s expand, the map reset, the BF link, territory list and attack-neighbour rows, the Research button, and small close and dismiss buttons. Icons keep their size; only what a finger can hit grows, and the territory sheet\u2019s drag handle is 44 px tall. Several measured 20 to 36 px on a phone. On by default; switching it off gives the controls exactly as before.',
   },
 ] as const;
 

@@ -1,7 +1,7 @@
 /**
- * The stability deploy cap, explained where units are placed
- * (`placement_cap_note_enabled`). Below 50 stability a territory takes only a
- * few units per draft (backend stabilityManager.getDeployCap), and every
+ * The stability deploy cap, explained where units are placed. Below 50
+ * stability a territory takes only a few units per draft (backend
+ * stabilityManager.getDeployCap), and every
  * conquered territory starts at 30, so a player's new ground quietly refused
  * reinforcements with only "stability cap: 3 more here" to say why.
  */

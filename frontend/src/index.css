@@ -89,7 +89,7 @@
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
 
-  /* Touch targets (`touch_targets_enabled`, which sets data-touch-targets on
+  /* Touch targets (useTouchTargetsRoot sets data-touch-targets on
      the root): on a touch screen, small controls get a 44px touch area.
      .tap-target keeps a compact icon's painted size and widens only what a
      finger can hit, with an invisible box centred on it; its `relative` is
@@ -175,7 +175,7 @@
   to   { transform: translateY(0); }
 }
 
-/* The game loading bar (game_loading_label_enabled): a third of the track
+/* The game loading bar (GameLoadingFallback): a third of the track
    sweeping across, since the page's download reports no progress. */
 @keyframes loading-slide {
   from { transform: translateX(-100%); }
@@ -186,8 +186,7 @@
   animation: loading-slide 1.4s ease-in-out infinite;
 }
 
-/* The game screen's height with game_visible_height_enabled on (the
-   default): what the browser shows. 100vh is the viewport with Safari's
+/* The game screen's height: what the browser shows. 100vh is the viewport with Safari's
    toolbar hidden, so with the toolbar showing, the bottom of a 100vh page (the
    phone's bar with the phase, the button that ends it and the menu) sat under
    it; 100dvh follows the toolbar. A browser without dvh ignores the second
@@ -219,7 +218,7 @@
   max-height: 55vh;
 }
 
-/* Phone fortify (phone_fortify_fit_enabled): the peek snap grows to the
+/* Phone fortify (TerritoryPanel): the peek snap grows to the
    measured height of the amount dial plus the first destination row, which
    TerritoryPanel writes to --fortify-fit-height. Never shorter than peek,
    never taller than full, so the map stays the larger half. */

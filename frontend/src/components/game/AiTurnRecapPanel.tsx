@@ -14,8 +14,8 @@ export interface TurnRecapEntry {
    */
   digestLine?: string;
   /**
-   * The viewer's own turn, folded in on desktop (`turn_recap_panel_enabled`)
-   * instead of the modal turn summary. Listed as "Your turn".
+   * The viewer's own turn, folded in on desktop instead of the modal turn
+   * summary. Listed as "Your turn".
    */
   ownTurn?: boolean;
 }
