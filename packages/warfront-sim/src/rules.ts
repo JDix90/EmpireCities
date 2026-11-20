@@ -324,6 +324,17 @@ export const BUILDING_SPECS: Record<number, BuildingSpec> = {
 };
 
 /**
+ * Timber every standing seat brings in on its own, per minute, with nobody assigned.
+ *
+ * A lumber camp costs timber, so a seat that spends its opening stock before it has one
+ * can never raise one: the lab found seats parked at zero timber from minute two to the
+ * cap, building nothing. This is the floor under that. It is deliberately small — less
+ * than one woodcutter's 8 a minute — so it rescues a stalled seat in a few minutes
+ * without ever standing in for a camp, and it scales with seats held, not with villagers.
+ */
+export const SEAT_TIMBER_PER_MINUTE = 6;
+
+/**
  * Starting stock, per the brief: seat, 4 villagers, 1 scout, 200 food, 100 timber.
  *
  * The silver is NOT from the brief, and it is here because the brief's own minute-two

@@ -79,12 +79,14 @@ export interface SimOptions {
  *
  * Bumped whenever the hashed state changes shape: version 2 added the economy, version 3
  * combat cooldowns and the tribes, version 4 the province-ticks a match is scored on.
+ * Version 7 changed no field but did change what a tick does (a seat's own timber), so
+ * an older replay would still hash differently than it recorded.
  * Every one of those fields is hashed, so an older replay REPLAYS to a different hash
  * than it recorded. Refusing it outright is the whole point of this package: a replay
  * that silently disagrees with itself is the failure mode the determinism rules exist to
  * prevent, and a loud error beats a quiet divergence.
  */
-export const REPLAY_VERSION = 6;
+export const REPLAY_VERSION = 7;
 
 /** A match, fully described: from this the final state is reproducible on any machine. */
 export interface Replay {

@@ -4,6 +4,7 @@ import { TerrainGrid, Biome, packCell } from './terrain';
 import {
   BUILDING_SPECS,
   BuildingKind,
+  SEAT_TIMBER_PER_MINUTE,
   STARVATION_INTERVAL_TICKS,
   TICKS_PER_MINUTE,
   UNIT_SPECS,
@@ -186,7 +187,27 @@ describe('gathering', () => {
     const p = sim.players.get(1)!;
     const timberBefore = p.timber;
     sim.run(TICKS_PER_MINUTE + 2);
-    expect(p.timber - timberBefore).toBe(8);
+    // One woodcutter's 8, on top of what the seat brings in by itself.
+    expect(p.timber - timberBefore).toBe(8 + SEAT_TIMBER_PER_MINUTE);
+  });
+
+  it('a seat brings in a little timber with nobody assigned, so a spent seat is never stuck at zero', () => {
+    const sim = economySim({ villagers: 0, timber: 0 });
+    const p = sim.players.get(1)!;
+    sim.run(TICKS_PER_MINUTE);
+    expect(p.timber).toBe(SEAT_TIMBER_PER_MINUTE);
+    sim.run(TICKS_PER_MINUTE * 4);
+    expect(p.timber).toBe(SEAT_TIMBER_PER_MINUTE * 5);
+    // Enough for a lumber camp inside five minutes, and less than one woodcutter earns.
+    expect(p.timber).toBeGreaterThanOrEqual(BUILDING_SPECS[BuildingKind.LumberCamp].timber);
+    expect(SEAT_TIMBER_PER_MINUTE).toBeLessThan(BUILDING_SPECS[BuildingKind.LumberCamp].yieldPerMinute);
+  });
+
+  it('pays the seat income once per standing seat', () => {
+    const sim = economySim({ villagers: 0, timber: 0 });
+    placeComplete(sim, BuildingKind.Seat, 8);
+    sim.run(TICKS_PER_MINUTE);
+    expect(sim.players.get(1)!.timber).toBe(SEAT_TIMBER_PER_MINUTE * 2);
   });
 });
 

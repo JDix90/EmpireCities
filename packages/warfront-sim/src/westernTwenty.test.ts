@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { TerrainGrid, type TerrainAsset } from './terrain';
 import { buildProvinceGeography } from './tribes';
+import { seatCellOf } from './openings';
 
 /**
  * The committed western-twenty asset, checked against the map document it was built from.
@@ -162,18 +163,39 @@ describe('timber, and which seats the asset can support', () => {
     }
   });
 
-  it('puts woodland at home for Gaul, Hispania and Carthage', () => {
-    expect(sitesIn('lugdunensis')).toBeGreaterThan(0);
-    expect(sitesIn('tarraconensis')).toBeGreaterThan(0);
-    expect(sitesIn('africa_proconsularis')).toBeGreaterThan(0);
+  it('puts woodland at home for every seat in the roster', () => {
+    // Rome used to be the exception: italia_central was bare and the nearest wood was Sila,
+    // a province away, so Rome's only timber was its opening stock until it had colonised
+    // the far south. The lab had every Rome parked at zero timber from minute two.
+    for (const seat of ['italia_central', 'lugdunensis', 'tarraconensis', 'africa_proconsularis']) {
+      expect(sitesIn(seat)).toBeGreaterThan(100);
+      expect(hopsToTimber(seat)).toBe(0);
+    }
   });
 
-  it('leaves Rome one colonisation from timber, not two', () => {
-    // Italia_central itself is bare, but Sila is in italia_south next door. Before the
-    // fix the nearest wood was narbonensis, two hops out, and it held a single cell.
-    expect(sitesIn('italia_central')).toBe(0);
-    expect(sitesIn('italia_south')).toBeGreaterThan(0);
-    expect(hopsToTimber('italia_central')).toBe(1);
+  it('puts that woodland within a short walk of each capital', () => {
+    // "At home" is not enough on a province 400 cells across: a camp two minutes' walk
+    // from the seat is a camp nobody defends. Fifteen cells is about a quarter of a
+    // minute for a villager.
+    const REACH_CELLS = 15;
+    for (const seat of ['italia_central', 'lugdunensis', 'tarraconensis', 'africa_proconsularis']) {
+      const capital = seatCellOf(grid, seat);
+      const home = grid.owner(capital);
+      const col = grid.colOf(capital);
+      const row = grid.rowOf(capital);
+      let nearest = Infinity;
+      for (let r = row - REACH_CELLS; r <= row + REACH_CELLS; r++) {
+        for (let c = col - REACH_CELLS; c <= col + REACH_CELLS; c++) {
+          if (!grid.inBounds(c, r)) continue;
+          const i = grid.index(c, r);
+          if (grid.owner(i) !== home || !grid.isWooded(i) || !grid.isPassable(i)) continue;
+          nearest = Math.min(nearest, Math.max(Math.abs(c - col), Math.abs(r - row)));
+        }
+      }
+      expect(nearest, `${seat}: nearest lumber site, in cells`).toBeLessThanOrEqual(REACH_CELLS);
+      // The capital itself must stay clear, or the seat would be standing in its own wood.
+      expect(grid.isWooded(capital)).toBe(false);
+    }
   });
 
   it('keeps the curated mask honest about which woods survive composition', () => {

@@ -1,10 +1,10 @@
 {
   "name": "western twenty: Gaul raises a farm on real plains, works it, and trains villagers",
   "ticks": 2700,
-  "expectedHash": "35914fb05c5e0daf",
+  "expectedHash": "ccdb9a0a2648816a",
   "terrain": "database/warfront/western_twenty.terrain.json",
   "replay": {
-    "version": 6,
+    "version": 7,
     "seed": 117,
     "scenario": {
       "players": [
@@ -136,6 +136,6 @@
         }
       }
     ],
-    "terrain_checksum": "7f91ac6b45b4417f"
+    "terrain_checksum": "4dfd3dabb78dd3fb"
   }
 }

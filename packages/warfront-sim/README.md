@@ -190,7 +190,7 @@ pre-scheduled; `replayHash(replay, ticks, terrain?)` is the one-liner the golden
 Pass `terrain: TerrainGrid.decode(asset)` to `new Sim(...)` for flow-field movement, and a
 scenario carrying `players` and `buildings` to give the match an economy.
 
-**Replay format version 6** (`REPLAY_VERSION` in `src/sim.ts`). The version is bumped
+**Replay format version 7** (`REPLAY_VERSION` in `src/sim.ts`). The version is bumped
 whenever the hashed state changes shape — 2 added the economy, 3 combat cooldowns and the
 tribes, 4 the province-ticks a match is scored on, and later steps bumped it again —
 because an older replay would hash differently than it recorded. `fromReplay` refuses it with a clear error

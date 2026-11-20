@@ -5,7 +5,9 @@ import type { Player, PlayerStore } from './players';
 import type { TerrainGrid } from './terrain';
 import {
   BUILDING_SPECS,
+  BuildingKind,
   Resource,
+  SEAT_TIMBER_PER_MINUTE,
   STARVATION_INTERVAL_TICKS,
   STARVATION_PERCENT_PER_INTERVAL,
   TICKS_PER_MINUTE,
@@ -120,6 +122,12 @@ function stepGathering(ctx: EconomyContext): void {
         player.silverAcc += perMinute;
         break;
     }
+  }
+  // Every standing seat brings in a little timber unattended — see SEAT_TIMBER_PER_MINUTE.
+  for (const building of ctx.buildings.all()) {
+    if (!building.complete || building.kind !== BuildingKind.Seat) continue;
+    const player = ctx.players.get(building.owner);
+    if (player) player.timberAcc += SEAT_TIMBER_PER_MINUTE;
   }
   for (const player of ctx.players.all()) {
     player.food += flush(player, 'foodAcc');

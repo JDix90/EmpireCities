@@ -3,7 +3,7 @@
   "ticks": 900,
   "expectedHash": "47dbe75be267344e",
   "replay": {
-    "version": 6,
+    "version": 7,
     "seed": 1,
     "scenario": {
       "units": [
