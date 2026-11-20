@@ -2,8 +2,8 @@ import { randomInt } from 'crypto';
 import { isDisallowedUsername } from '../../utils/profanity';
 
 /**
- * Friendly guest names (`friendly_guest_names_enabled`): "SwiftFalcon_48213"
- * instead of "Guest_" and 8 hex characters. It is the name other players see in
+ * Friendly guest names: "SwiftFalcon_48213" instead of "Guest_" and 8 hex
+ * characters. It is the name other players see in
  * turn order, battles and results, so it should read as a name.
  *
  * 30 adjectives x 30 animals x 100,000 numbers is 90 million names. The guest

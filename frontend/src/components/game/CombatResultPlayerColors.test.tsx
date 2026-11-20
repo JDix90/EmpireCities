@@ -1,14 +1,13 @@
 /**
- * Battle colours by player (`battle_player_colors_enabled`): a battle result
+ * Battle colours by player: a battle result
  * drew the attacker in red and the defender in blue, so it read backwards for a
- * player who was blue on the map attacking a red one. With the flag on each
+ * player who was blue on the map attacking a red one. Now each
  * side's name and dice take that player's map colour.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import { CombatResultView } from './ActionModal';
 import { useGameStore, type CombatResult, type GameState } from '../../store/gameStore';
-import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 function result(overrides: Partial<CombatResult> = {}): CombatResult {
   return {
@@ -28,9 +27,6 @@ function result(overrides: Partial<CombatResult> = {}): CombatResult {
     ...overrides,
   } as CombatResult;
 }
-
-const setFlag = (on: boolean) =>
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, battle_player_colors_enabled: on } }));
 
 /** Past the dice settling. */
 const settle = () => act(() => { vi.advanceTimersByTime(5_000); });
@@ -59,12 +55,10 @@ describe('battle colours by player', () => {
   });
   afterEach(() => {
     vi.useRealTimers();
-    setFlag(true);
     useGameStore.setState({ gameState: null });
   });
 
   it('draws each side\'s name and dice in that player\'s map colour', () => {
-    setFlag(true);
     render(<CombatResultView result={result()} perspective="attacker" onDismiss={() => {}} />);
     settle();
     const attacker = screen.getByTestId('combat-attacker-name');
@@ -82,7 +76,6 @@ describe('battle colours by player', () => {
   });
 
   it('keeps blue for a neutral defender, who has no map colour', () => {
-    setFlag(true);
     render(<CombatResultView result={result({ defenderId: 'neutral', defenderName: 'Neutral' })} perspective="attacker" onDismiss={() => {}} />);
     settle();
     const defender = screen.getByTestId('combat-defender-name');
@@ -90,21 +83,7 @@ describe('battle colours by player', () => {
     expect(diceOf('combat-defender-name')[0].className).toContain('bg-blue-500/25');
   });
 
-  it('is red and blue as before with the flag off', () => {
-    setFlag(false);
-    render(<CombatResultView result={result()} perspective="attacker" onDismiss={() => {}} />);
-    settle();
-    expect(screen.getByTestId('combat-attacker-name').className).toContain('text-red-400');
-    expect(screen.getByTestId('combat-defender-name').className).toContain('text-blue-400');
-    expect(diceOf('combat-attacker-name')[0].className).toContain('bg-red-500/25');
-    expect(diceOf('combat-attacker-name')[0].style.backgroundColor).toBe('');
-    // The losses too.
-    expect(screen.getByTestId('combat-defender-losses').className).toContain('bg-blue-500/10');
-    expect(screen.getByTestId('combat-defender-losses').style.backgroundColor).toBe('');
-  });
-
   it('puts each side\'s losses in that player\'s colour, not red under a blue name', () => {
-    setFlag(true);
     render(<CombatResultView result={result({ attacker_losses: 1, defender_losses: 1, attacker_rolls: [6, 3], defender_rolls: [4, 3] })} perspective="attacker" onDismiss={() => {}} />);
     settle();
     const mine = screen.getByTestId('combat-attacker-losses');

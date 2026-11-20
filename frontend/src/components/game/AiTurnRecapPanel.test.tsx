@@ -111,7 +111,7 @@ describe('AiTurnRecapPanel', () => {
   });
 });
 
-describe('the own-turn row (turn_recap_panel_enabled)', () => {
+describe('the own-turn row', () => {
   it('sums what was placed and moved into one line', () => {
     expect(ownTurnDigest([{ units: 3 }, { units: 2 }], [{ units: 4 }])).toBe('Placed 5 units, moved 4');
     expect(ownTurnDigest([{ units: 1 }], [])).toBe('Placed 1 unit');

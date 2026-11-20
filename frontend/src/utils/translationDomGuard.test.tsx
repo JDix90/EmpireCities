@@ -1,22 +1,18 @@
 /**
- * The translated-page guard (`translation_dom_guard_enabled`): a page the
- * browser translated used to crash whenever React removed a text node the
- * translator had replaced, or inserted an element in front of one.
+ * The translated-page guard: a page the browser translated used to crash
+ * whenever React removed a text node the translator had replaced, or inserted
+ * an element in front of one.
  */
 import { Component, useState, type ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { translatePage } from '../test/translatePage';
-import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 const sentry = vi.hoisted(() => ({ captureMessage: vi.fn() }));
 vi.mock('@sentry/react', () => sentry);
 
 import { installTranslationDomGuard, uninstallTranslationDomGuardForTests } from './translationDomGuard';
-
-const setGuard = (on: boolean) =>
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, translation_dom_guard_enabled: on } }));
 
 /** What the translator leaves: the text node gone, a <font> holding new words in its place. */
 function translate(text: Text): HTMLElement {
@@ -40,7 +36,6 @@ function thrown(fn: () => unknown): string | null {
 beforeEach(() => installTranslationDomGuard());
 afterEach(() => {
   uninstallTranslationDomGuardForTests();
-  setGuard(true);
   sentry.captureMessage.mockClear();
 });
 
@@ -105,8 +100,8 @@ describe('translation DOM guard', () => {
     });
   });
 
-  it('throws as the browser always did with the kill switch off', () => {
-    setGuard(false);
+  it('throws as the browser always did where the guard is not installed', () => {
+    uninstallTranslationDomGuardForTests();
     const parent = document.createElement('p');
     const text = parent.appendChild(document.createTextNode('Copied'));
     translate(text);
@@ -162,7 +157,7 @@ describe('a translated page in React', () => {
   });
 
   it('falls to the error screen without it', () => {
-    setGuard(false);
+    uninstallTranslationDomGuardForTests();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     play();
     expect(screen.getByRole('alert').textContent).toBe('NotFoundError');

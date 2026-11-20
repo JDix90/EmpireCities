@@ -10,19 +10,13 @@ export interface ClientFeatureFlags {
   first_match_ladder_enabled: boolean;
   first_match_ladder_maps_enabled: boolean;
   first_match_button_emphasis_enabled: boolean;
-  turn_recap_panel_enabled: boolean;
-  turn_clarity_enabled: boolean;
-  map_gestures_v2_enabled: boolean;
   onboarding_tutorial_first_enabled: boolean;
-  tutorial_card_fade_enabled: boolean;
   tutorial_guided_draft_enabled: boolean;
   hero_single_cta_enabled: boolean;
-  era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
   email_account_save_enabled: boolean;
   guest_prompt_v2_enabled: boolean;
   save_account_copy_enabled: boolean;
-  results_footer_enabled: boolean;
   results_rewards_first_enabled: boolean;
   ranked_leaderboard_enabled: boolean;
   referral_survey_enabled: boolean;
@@ -59,33 +53,22 @@ export interface ClientFeatureFlags {
   guest_account_deletion_enabled: boolean;
   sign_in_code_enabled: boolean;
   localization_enabled: boolean;
-  touch_targets_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
-  first_turn_clock_wait_enabled: boolean;
   store_v2_enabled: boolean;
   space_age_moon_race_enabled: boolean;
   first_match_easy_enabled: boolean;
-  game_loading_label_enabled: boolean;
-  tutorial_phone_gate_visible_enabled: boolean;
-  desktop_card_cue_enabled: boolean;
   card_sets_explain_enabled: boolean;
-  battle_armies_enabled: boolean;
-  battle_player_colors_enabled: boolean;
   combat_explain_enabled: boolean;
   tutorial_wrapup_to_match_enabled: boolean;
   first_match_primary_cta_enabled: boolean;
-  phone_fortify_fit_enabled: boolean;
   phone_sheet_fit_enabled: boolean;
   phone_turn_countdown_enabled: boolean;
   solo_untimed_enabled: boolean;
-  in_game_mute_enabled: boolean;
   full_game_evening_enabled: boolean;
   full_game_ages_ending_enabled: boolean;
   home_screen_install_enabled: boolean;
-  placement_cap_note_enabled: boolean;
   custom_lobby_fold_enabled: boolean;
   custom_round_cap_enabled: boolean;
-  loss_reason_enabled: boolean;
   loss_reason_play_enabled: boolean;
   results_action_events_enabled: boolean;
   funnel_events_v2_enabled: boolean;
@@ -98,8 +81,6 @@ export interface ClientFeatureFlags {
   overlay_queue_enabled: boolean;
   comeback_hook_enabled: boolean;
   mission_reveal_enabled: boolean;
-  translation_dom_guard_enabled: boolean;
-  game_visible_height_enabled: boolean;
 }
 
 /**
@@ -124,18 +105,10 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   first_match_ladder_maps_enabled: false,
   // A first match's phase button is plain until the phase's action is done. On by default; admin kill switch.
   first_match_button_emphasis_enabled: true,
-  // Desktop: the own-turn recap is a panel row, not a modal. On by default; admin kill switch.
-  turn_recap_panel_enabled: true,
-  turn_clarity_enabled: true,
-  // Flat map: pinch zooms around the fingers, panning keeps land on screen. On by default; admin kill switch.
-  map_gestures_v2_enabled: true,
   onboarding_tutorial_first_enabled: true,
-  // Tutorial card: a fade above the buttons while there is more to read. On by default; admin kill switch.
-  tutorial_card_fade_enabled: true,
   // The tutorial's place, attack and fortify cards, one step at a time. Dark-launched OFF.
   tutorial_guided_draft_enabled: false,
   hero_single_cta_enabled: true,
-  era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
   // Save your account with just an email; sign in by emailed link. On by default; admin kill switch.
   email_account_save_enabled: true,
@@ -143,8 +116,6 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   guest_prompt_v2_enabled: true,
   // "Save your account" wording on every guest surface. On by default; admin kill switch.
   save_account_copy_enabled: true,
-  // Results: Rematch and Return to Lobby pinned, no second account ask. On by default; admin kill switch.
-  results_footer_enabled: true,
   // Results lead with the level bar and medals. Dark-launched OFF.
   results_rewards_first_enabled: false,
   // OFF until the ranked ladder has enough players not to render empty.
@@ -219,54 +190,34 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
-  // Touch targets: 44px touch areas for small controls on touch screens. On by default; admin kill switch.
-  touch_targets_enabled: true,
   // Daily Challenge v2 (decision puzzles graded by an exact solver). Dark-launched
   // OFF; the server decides which days are v2, the client renders what it is sent.
   daily_puzzle_v2_enabled: false,
-  // First turn clock: the first turn's clock waits for the game-start briefing. On by default; admin kill switch.
-  first_turn_clock_wait_enabled: true,
   // Store overhaul: cosmetics drawn on profiles and in matches (the store page
   // is the same either way). On by default; admin kill switch.
   store_v2_enabled: true,
   // A player's first Quick Match is one Easy bot on a small map. On by default; admin kill switch.
   first_match_easy_enabled: true,
-  // Game loading: the skeleton names the match being set up. On by default; admin kill switch.
-  game_loading_label_enabled: true,
-  // Phone tutorial keeps the tech tree's controls in view at the era gate. On by default; admin kill switch.
-  tutorial_phone_gate_visible_enabled: true,
-  // Desktop HUD offers a one-click card trade when a set is ready. On by default; admin kill switch.
-  desktop_card_cue_enabled: true,
   // Cards tray and list mark sets and say what the next one pays. Dark-launched OFF.
   card_sets_explain_enabled: false,
-  // Battle result: armies left beside both names, blitz dice marked as the last roll. On by default; admin kill switch.
-  battle_armies_enabled: true,
-  // Battle colours by player: battle dice and names in each player's map colour. On by default; admin kill switch.
-  battle_player_colors_enabled: true,
   // Combat explains itself: win chance on attack targets, dice pairs in the result. Dark-launched OFF.
   combat_explain_enabled: false,
   // The tutorial wrap-up leads into the first real match. On by default; admin kill switch.
   tutorial_wrapup_to_match_enabled: true,
   // While the next Quick Match is the first, it is the lobby's gold button. On by default; admin kill switch.
   first_match_primary_cta_enabled: true,
-  // Phone fortify: the sheet grows to show the amount and the first destination. On by default; admin kill switch.
-  phone_fortify_fit_enabled: true,
   // Phone sheet fit: the sheet grows to show the Place button / first attack target. On by default; admin kill switch.
   phone_sheet_fit_enabled: true,
   // Phone turn countdown: the last minute of a live turn in the phone's bottom bar. On by default; admin kill switch.
   phone_turn_countdown_enabled: true,
   // Solo games are untimed: no turn clock with one human and only bots. On by default; admin kill switch.
   solo_untimed_enabled: true,
-  // In-game mute: one sound and music switch in Tools & options. On by default; admin kill switch.
-  in_game_mute_enabled: true,
   // A Full Game fits an evening: the 65% ending by default, an 80-round cap. On by default (promoted with the first-win ladder); admin kill switch.
   full_game_evening_enabled: true,
   // A Full Game ends by the eras: conquest from the Modern era, a share that falls during it, no round cap. Dark-launched OFF.
   full_game_ages_ending_enabled: false,
   // Add to Home Screen: an install button where the browser offers one, a step-by-step guide on iPhone. Dark-launched OFF.
   home_screen_install_enabled: false,
-  // Placement cap note: explain the stability cap where units are placed. On by default; admin kill switch.
-  placement_cap_note_enabled: true,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.
   custom_lobby_fold_enabled: false,
   // The Custom Game form sets a round limit. Dark-launched OFF.
@@ -294,13 +245,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   overlay_queue_enabled: false,
   // Project 4: tomorrow's daily on results, honest guest streak, reminder after a win, guest lobby card, home greeting. Dark-launched OFF.
   comeback_hook_enabled: false,
-  loss_reason_enabled: true,
   // A game won by a secret mission names every player's mission at game over. On by default; admin kill switch.
   mission_reveal_enabled: true,
-  // A page the browser translated doesn't crash (utils/translationDomGuard.ts). On by default; admin kill switch.
-  translation_dom_guard_enabled: true,
-  // The game screen, and the replay page, are as tall as what the browser shows (100dvh). On by default; admin kill switch.
-  game_visible_height_enabled: true,
   // The Space Age Moon Race, Lunar Hegemony included. On by default; admin kill switch.
   space_age_moon_race_enabled: true,
 };
@@ -363,20 +309,6 @@ export function useFirstMatchButtonEmphasisEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_button_emphasis_enabled);
 }
 
-/** Desktop: the end of your own turn adds a row to the non-blocking recap panel instead of a modal summary (pages/GamePage.tsx, components/game/AiTurnRecapPanel.tsx). */
-export function useTurnRecapPanelEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.turn_recap_panel_enabled);
-}
-
-export function useTurnClarityEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.turn_clarity_enabled);
-}
-
-/** Flat map gestures: pinch and wheel zoom around the fingers or cursor, bounded panning, no double-tap from a pinch (components/game/GameMap.tsx). */
-export function useMapGesturesV2Enabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.map_gestures_v2_enabled);
-}
-
 export function useOnboardingTutorialFirstEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.onboarding_tutorial_first_enabled);
 }
@@ -384,11 +316,6 @@ export function useOnboardingTutorialFirstEnabled(): boolean {
 /** The tutorial's place, attack and fortify cards show one step at a time (tutorial/guidedCards.ts). */
 export function useTutorialGuidedDraftEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.tutorial_guided_draft_enabled);
-}
-
-/** Tutorial card: a fade above the buttons while the prose has more below the fold (components/game/TutorialOverlay.tsx). */
-export function useTutorialCardFadeEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.tutorial_card_fade_enabled);
 }
 
 export function useHeroSingleCtaEnabled(): boolean {
@@ -428,19 +355,9 @@ export function useSaveAccountCopyEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.save_account_copy_enabled);
 }
 
-/** Results: Rematch and Return to Lobby pinned in a footer, and no signup nudge after the results offered saving (components/game/ActionModal.tsx, pages/GamePage.tsx). */
-export function useResultsFooterEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.results_footer_enabled);
-}
-
 /** Results lead with the level bar, XP and medals (components/game/ResultsRewards.tsx). */
 export function useResultsRewardsFirstEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.results_rewards_first_enabled);
-}
-
-/** The game screen sized to the visible screen, not 100vh (pages/GamePage.tsx, `.h-visible` in index.css). */
-export function useGameVisibleHeightEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.game_visible_height_enabled);
 }
 
 /** Ranked ladder surfaces: the Ranked leaderboard tab + lobby Top Commanders. */
@@ -590,11 +507,6 @@ export function useLocalizationEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.localization_enabled);
 }
 
-/** Touch targets: 44px touch areas for small game controls on touch screens (hooks/useTouchTargetsRoot.ts marks the document; index.css does the rest). */
-export function useTouchTargetsEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.touch_targets_enabled);
-}
-
 /**
  * Daily Challenge v2 (docs/DAILY_PUZZLE_V2.md). The server decides whether a
  * day is served as a decision puzzle; the client renders the v2 block it is
@@ -602,11 +514,6 @@ export function useTouchTargetsEnabled(): boolean {
  */
 export function useDailyPuzzleV2Enabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.daily_puzzle_v2_enabled);
-}
-
-/** First turn clock: hold the countdown while the game-start briefing is open on the player's first turn (GameHUD, gameSocket game:turn_ready). */
-export function useFirstTurnClockWaitEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.first_turn_clock_wait_enabled);
 }
 
 /**
@@ -631,34 +538,9 @@ export function useFirstMatchEasyEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_easy_enabled);
 }
 
-/** Game loading: the route skeleton on /tutorial and /game/ names the match being set up (components/ui/GameLoadingFallback.tsx). */
-export function useGameLoadingLabelEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.game_loading_label_enabled);
-}
-
-/** Phone tutorial keeps the tech tree's controls in view at the era gate (components/game/TutorialOverlay.tsx). */
-export function useTutorialPhoneGateVisibleEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.tutorial_phone_gate_visible_enabled);
-}
-
-/** Desktop HUD offers a one-click card trade during the draft when a set is ready (components/game/GameHUD.tsx). */
-export function useDesktopCardCueEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.desktop_card_cue_enabled);
-}
-
 /** Cards tray and desktop card list mark sets and say what the next one pays (utils/cardSets.ts `cardPickView`). */
 export function useCardSetsExplainEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.card_sets_explain_enabled);
-}
-
-/** Battle result: armies left beside both territory names on your own attack, and a blitz's dice labelled as its last roll (components/game/ActionModal.tsx). */
-export function useBattleArmiesEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.battle_armies_enabled);
-}
-
-/** Battle colours by player: battle dice and names in each player's map colour (ActionModal CombatResultView). */
-export function useBattlePlayerColorsEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.battle_player_colors_enabled);
 }
 
 /** Combat explains itself: win chance on attack targets, dice pairs in the result (hooks/useAttackOdds, CombatDicePairs). */
@@ -676,11 +558,6 @@ export function useFirstMatchPrimaryCtaEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_primary_cta_enabled);
 }
 
-/** Phone fortify: the territory sheet grows to show the amount dial and the first destination row together (components/game/TerritoryPanel.tsx). */
-export function usePhoneFortifyFitEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.phone_fortify_fit_enabled);
-}
-
 /** Phone sheet fit: the territory sheet grows to show its main action — Place, or the first attack target (components/game/TerritoryPanel.tsx). */
 export function usePhoneSheetFitEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.phone_sheet_fit_enabled);
@@ -694,11 +571,6 @@ export function usePhoneTurnCountdownEnabled(): boolean {
 /** Solo games are untimed: the lobby builds one-human-vs-bots games with no turn clock (pages/LobbyPage.tsx, utils/soloTimer.ts). */
 export function useSoloUntimedEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.solo_untimed_enabled);
-}
-
-/** In-game mute: one sound and music switch in the HUD's Tools & options, on desktop and in the phone menu (components/game/GameHUD.tsx). */
-export function useInGameMuteEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.in_game_mute_enabled);
 }
 
 /** A Full Game fits an evening: the 65% ending by default, an 80-round cap (utils/quickMatchPrefs.ts). */
@@ -716,11 +588,6 @@ export function useFullGameAgesEndingEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.full_game_ages_ending_enabled);
 }
 
-/** Placement cap note: explain the stability deploy cap where units are placed (components/game/PlacementCapNote.tsx). */
-export function usePlacementCapNoteEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.placement_cap_note_enabled);
-}
-
 /** The Custom Game form folds its less-used options under Advanced (pages/LobbyPage.tsx). */
 export function useCustomLobbyFoldEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.custom_lobby_fold_enabled);
@@ -729,11 +596,6 @@ export function useCustomLobbyFoldEnabled(): boolean {
 /** The Custom Game form sets a round limit (pages/LobbyPage.tsx, utils/customRoundLimit.ts). */
 export function useCustomRoundCapEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.custom_round_cap_enabled);
-}
-
-/** Loss reason: a "Why you lost" line on the defeat screen (utils/lossReason.ts). */
-export function useLossReasonEnabled(): boolean {
-  return useFeatureFlagsStore((s) => s.flags.loss_reason_enabled);
 }
 
 /** Loss reasons for how the player played — never or rarely attacking, turns the clock ended (utils/lossReason.ts). */

@@ -716,12 +716,11 @@ describe('GameHUD — desktop card trade cue', () => {
     { card_id: 'c2', territory_id: 't2', symbol: 'cavalry' },
   ];
 
-  function setup({ flag = true, cards = hand, phase = 'draft', count = 6, cap = 30 } = {}) {
+  function setup({ cards = hand, phase = 'draft', count = 6, cap = 30 } = {}) {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
       addListener: vi.fn(), removeListener: vi.fn(),
     }) as unknown as typeof window.matchMedia;
-    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, desktop_card_cue_enabled: flag } }));
     useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
     useGameStore.setState({
       gameState: makeState({
@@ -745,12 +744,7 @@ describe('GameHUD — desktop card trade cue', () => {
     expect(onRedeemCards).toHaveBeenCalledWith(['c1', 'c2', 'c3']);
   });
 
-  it('stays hidden with the flag off, outside the draft, or without a valid set', () => {
-    setup({ flag: false });
-    const { unmount } = renderHud();
-    expect(screen.queryByTestId('hud-card-trade-cue')).toBeNull();
-    unmount();
-
+  it('stays hidden outside the draft, or without a valid set', () => {
     setup({ phase: 'attack' });
     const second = renderHud();
     expect(screen.queryByTestId('hud-card-trade-cue')).toBeNull();
@@ -841,12 +835,11 @@ describe('GameHUD — desktop card list, sets explained (card_sets_explain_enabl
 });
 
 describe('GameHUD — sound and music switch', () => {
-  function setup(flag: boolean) {
+  function setup() {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
       addListener: vi.fn(), removeListener: vi.fn(),
     }) as unknown as typeof window.matchMedia;
-    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, in_game_mute_enabled: flag } }));
     useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
     useGameStore.setState({ gameState: makeState(), lastCombatResult: null } as never);
   }
@@ -860,7 +853,7 @@ describe('GameHUD — sound and music switch', () => {
   });
 
   it('mutes sound effects and music together, and brings both back', () => {
-    setup(true);
+    setup();
     renderHud();
     openTools();
     expect(toggle().checked).toBe(true);
@@ -876,7 +869,7 @@ describe('GameHUD — sound and music switch', () => {
 
   it('reads as on while either still plays, so switching off silences both', () => {
     setMusicMuted(true);
-    setup(true);
+    setup();
     renderHud();
     openTools();
     expect(toggle().checked).toBe(true);
@@ -886,7 +879,7 @@ describe('GameHUD — sound and music switch', () => {
   });
 
   it('follows a change made elsewhere, as on the Settings page', () => {
-    setup(true);
+    setup();
     renderHud();
     openTools();
     act(() => { setSfxMuted(true); setMusicMuted(true); });
@@ -894,7 +887,7 @@ describe('GameHUD — sound and music switch', () => {
   });
 
   it('starts off on a phone or tablet with nothing saved, and switching it on keeps both on', () => {
-    setup(true);
+    setup();
     window.matchMedia = vi.fn((query: string) => ({
       matches: query.includes('pointer: coarse'), addEventListener: vi.fn(), removeEventListener: vi.fn(),
       addListener: vi.fn(), removeListener: vi.fn(),
@@ -909,17 +902,10 @@ describe('GameHUD — sound and music switch', () => {
   });
 
   it('is in the phone menu\'s HUD too', () => {
-    setup(true);
+    setup();
     renderHud({ mobile: true });
     openTools();
     expect(toggle()).toBeTruthy();
-  });
-
-  it('is the tools as before with the flag off', () => {
-    setup(false);
-    renderHud();
-    openTools();
-    expect(screen.queryByRole('checkbox', { name: 'Sound and music' })).toBeNull();
   });
 });
 

@@ -4,7 +4,6 @@ import { GraduationCap, ChevronDown, ChevronRight, ChevronUp, X } from 'lucide-r
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { isMobileViewport, isShortViewport } from '../../utils/device';
-import { useTutorialCardFadeEnabled, useTutorialPhoneGateVisibleEnabled } from '../../store/featureFlagsStore';
 import {
   TUTORIAL_MODULES,
   TUTORIAL_V2_ENABLED,
@@ -162,7 +161,6 @@ export default function TutorialOverlay({
   guided = null,
 }: TutorialOverlayProps) {
   const { t } = useTranslation('tutorial');
-  const phoneGateVisible = useTutorialPhoneGateVisibleEnabled();
   const rawStep = steps[stepIndex] as TutorialStep | undefined;
   // Copy in the active language; gates, actions and layout hints are untouched.
   const step = rawStep ? localizeTutorialStep(rawStep, t, lessonModule) : undefined;
@@ -176,11 +174,10 @@ export default function TutorialOverlay({
   const stepId = step?.id;
   useEffect(() => { setFoldOverride(null); }, [stepId]);
   /**
-   * `tutorial_card_fade_enabled`: whether the card's scrolling prose has more
-   * below the fold. The welcome card was clipped mid-sentence at common
-   * heights, behind a nearly invisible scrollbar; the fade says "more".
+   * Whether the card's scrolling prose has more below the fold. The welcome
+   * card was clipped mid-sentence at common heights, behind a nearly invisible
+   * scrollbar; the fade says "more".
    */
-  const cardFade = useTutorialCardFadeEnabled();
   const proseRef = useRef<HTMLDivElement>(null);
   const [proseMore, setProseMore] = useState(false);
   const measureProse = useCallback(() => {
@@ -188,11 +185,10 @@ export default function TutorialOverlay({
     setProseMore(!!el && el.scrollHeight - el.scrollTop - el.clientHeight > 4);
   }, []);
   useLayoutEffect(() => {
-    if (!cardFade) return;
     measureProse();
     window.addEventListener('resize', measureProse);
     return () => window.removeEventListener('resize', measureProse);
-  }, [cardFade, measureProse, stepId, whyOpen]);
+  }, [measureProse, stepId, whyOpen]);
   /**
    * The card that was up when a full-screen panel opened. The player read it
    * on the board and opened the panel because of it, so on a phone it folds
@@ -216,7 +212,7 @@ export default function TutorialOverlay({
    * economy and era cards, read between the first attack and the era gate,
    * where a phone shows a third of the board at best.
    */
-  const brief = phoneGateVisible && phoneLayout && !!step.phoneBrief;
+  const brief = phoneLayout && !!step.phoneBrief;
   const { title, message } = copy;
   const detail = brief ? undefined : copy.detail;
   const hint = brief ? undefined : copy.hint;
@@ -287,7 +283,7 @@ export default function TutorialOverlay({
       // opens, except one marked `arrivesFoldedOverPanel`: the era-advance card
       // asks for one more research in the tech tree, and opened it covered the
       // research buttons it asks for. Its strip names the action instead.
-      ? panelEntry.stepId === step.id || (phoneGateVisible && !!step.arrivesFoldedOverPanel)
+      ? panelEntry.stepId === step.id || !!step.arrivesFoldedOverPanel
       : territorySelected));
   const waitLine = t((step.requireAction && WAIT_LINE_KEYS[step.requireAction]) || 'overlay.waitDefault');
 
@@ -413,7 +409,7 @@ export default function TutorialOverlay({
           {/* Prose scrolls; the actions below stay pinned to the card. */}
           <div
             ref={proseRef}
-            onScroll={cardFade ? measureProse : undefined}
+            onScroll={measureProse}
             className={centered || compact ? 'min-h-0 overflow-y-auto' : undefined}
           >
           {/* The guided card on a phone has no header row: every row it drops
@@ -529,7 +525,7 @@ export default function TutorialOverlay({
           )}
           </div>
           {/* More prose below the fold: a fade over its last lines, above the buttons. */}
-          {cardFade && proseMore && (centered || compact) && (
+          {proseMore && (centered || compact) && (
             <div
               aria-hidden
               data-testid="tutorial-prose-fade"

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useGameLoadingLabelEnabled } from '../../store/featureFlagsStore';
 import { APP_NAME_NAV } from '../../constants/brand';
 
 /** After this long the wait is a slow connection, and the screen says so. */
@@ -13,14 +12,12 @@ export interface PracticeMatchState {
 
 /**
  * Which labelled wait the route skeleton should show, or null for the plain
- * skeleton. `game_loading_label_enabled`: Play Free Now goes to /tutorial,
- * then /game/:id, and each page's code downloads first; on a phone line that
- * was 8 seconds of grey boxes and the wordmark.
+ * skeleton. Play Free Now goes to /tutorial, then /game/:id, and each page's
+ * code downloads first; on a phone line that was 8 seconds of grey boxes and
+ * the wordmark.
  */
 export function useGameLoadingKind(): 'practice' | 'match' | null {
-  const enabled = useGameLoadingLabelEnabled();
   const location = useLocation();
-  if (!enabled) return null;
   if (location.pathname.startsWith('/tutorial')) return 'practice';
   if (!location.pathname.startsWith('/game/')) return null;
   return (location.state as PracticeMatchState | null)?.practiceMatch ? 'practice' : 'match';

@@ -1,7 +1,6 @@
 /**
- * POST /api/auth/guest names the new guest. With friendly_guest_names_enabled
- * the name is "SwiftFalcon_48213"; off, it is "Guest_" and 8 hex characters as
- * before. A taken name still retries with a fresh draw.
+ * POST /api/auth/guest names the new guest like "SwiftFalcon_48213". A taken
+ * name retries with a fresh draw.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -57,25 +56,15 @@ describe('guest names', () => {
   });
   afterEach(() => adminConfig.resetAdminConfigCacheForTests());
 
-  const friendly = (on: boolean) =>
-    adminConfig.setAdminConfigCacheForTests({ feature_flags: { friendly_guest_names_enabled: on } });
-
-  it('names a new guest like SwiftFalcon_48213 with the flag on', async () => {
-    friendly(true);
+  it('names a new guest like SwiftFalcon_48213', async () => {
     expect(await newGuest()).toMatch(/^[A-Z][a-z]+[A-Z][a-z]+_\d{5}$/);
   });
 
   it('draws a fresh name when one is taken', async () => {
-    friendly(true);
     const name = await newGuest(1);
     const attempts = tried();
     expect(attempts).toHaveLength(2);
     expect(attempts[1]).toBe(name);
     expect(attempts[0]).toMatch(/^[A-Z][a-z]+[A-Z][a-z]+_\d{5}$/);
-  });
-
-  it('keeps Guest_ and 8 hex characters with the flag off', async () => {
-    friendly(false);
-    expect(await newGuest()).toMatch(/^Guest_[0-9a-f]{8}$/);
   });
 });

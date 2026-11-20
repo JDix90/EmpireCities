@@ -1,5 +1,5 @@
 /**
- * View math for the flat map's gestures (GameMap, `map_gestures_v2_enabled`).
+ * View math for the flat map's gestures (GameMap).
  * Pure so the geometry is unit-testable without a canvas.
  *
  * The map's layers share one transform: a position (the content's top-left in

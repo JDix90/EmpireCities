@@ -18,11 +18,7 @@ import { phaseAdvanceLabel, PHASE_LABELS } from '../../constants/phaseLabels';
 import { PhaseProgressBar } from './PhaseProgressBar';
 import {
   useCardSetsExplainEnabled,
-  useDesktopCardCueEnabled,
-  useFirstTurnClockWaitEnabled,
   useGlobeUnitCountsEnabled,
-  useInGameMuteEnabled,
-  useTurnClarityEnabled,
 } from '../../store/featureFlagsStore';
 import { cardPickView, cardSetBonus, CARD_SET_RULE, findRedeemableCardIds } from '../../utils/cardSets';
 import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
@@ -113,9 +109,9 @@ interface GameHUDProps {
   onConnectionHintPreferenceChange?: (value: ConnectionHintPreference) => void;
   denseMap?: boolean;
   /**
-   * The game-start briefing (GameStartModal) is open. With
-   * first_turn_clock_wait_enabled, the player's first turn starts its clock
-   * when it closes, so the countdown holds at the full turn until then.
+   * The game-start briefing (GameStartModal) is open. The player's first turn
+   * starts its clock when it closes, so the countdown holds at the full turn
+   * until then.
    */
   startBriefingOpen?: boolean;
 }
@@ -143,8 +139,8 @@ function readStoredHudTab(): HudTab {
 }
 
 /**
- * `in_game_mute_enabled`: the HUD's "Sound and music" switch, over the Settings
- * page's two mutes. On while either still plays, so switching off silences
+ * The HUD's "Sound and music" switch, over the Settings page's two mutes. On
+ * while either still plays, so switching off silences
  * both, and switching on brings both back.
  */
 function isSoundOn(): boolean {
@@ -192,8 +188,6 @@ export default function GameHUD({
   const [activeTab, setActiveTab] = useState<HudTab>(readStoredHudTab);
   const [logUnread, setLogUnread] = useState(false);
   const [showTools, setShowTools] = useState(false);
-  const inGameMute = useInGameMuteEnabled();
-  const firstTurnClockWait = useFirstTurnClockWaitEnabled();
   const [soundOn, setSoundOn] = useState(isSoundOn);
   // Seed with the mount-time result so re-joining a game mid-combat doesn't
   // flash a phantom "new result" dot before the player has done anything.
@@ -233,7 +227,7 @@ export default function GameHUD({
         (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
       );
   const isMyTurn = !!currentPlayer && !!myPlayer && currentPlayer.player_id === myPlayer.player_id;
-  const holdFirstTurnClock = firstTurnClockWait && startBriefingOpen && isMyTurn && gameState?.turn_number === 1;
+  const holdFirstTurnClock = startBriefingOpen && isMyTurn && gameState?.turn_number === 1;
   // Space Age Phase 2b: a Drop Assault marked against ground this player holds.
   // Standing alert rather than a one-shot toast — the counterplay is to
   // reinforce the tile, which takes until the drop actually lands.
@@ -254,8 +248,6 @@ export default function GameHUD({
     isMyTurn && gameState?.phase === 'attack' && !inOpeningCeasefire(gameState)
       ? nothingToFightMessage(gameState, mapData?.connections ?? [], myPlayer?.player_id)
       : null;
-  const turnClarityEnabled = useTurnClarityEnabled();
-  const desktopCardCueEnabled = useDesktopCardCueEnabled();
   const cardSetsExplain = useCardSetsExplainEnabled();
   const draftPool = computeDraftPool(
     gameState,
@@ -355,18 +347,16 @@ export default function GameHUD({
             {PHASE_LABELS[gameState.phase] ?? gameState.phase}
           </span>
         </div>
-        {turnClarityEnabled && (
-          <PhaseProgressBar
-            phase={gameState.phase}
-            isMyTurn={isMyTurn}
-            // Compact on both: the desktop sidebar is 288px wide, which fits
-            // the icons plus one label, not four. The current step keeps its
-            // word — that is the one a player reads — and every step carries
-            // its status in sr-only text either way.
-            variant="compact"
-            className="mb-2"
-          />
-        )}
+        <PhaseProgressBar
+          phase={gameState.phase}
+          isMyTurn={isMyTurn}
+          // Compact on both: the desktop sidebar is 288px wide, which fits
+          // the icons plus one label, not four. The current step keeps its
+          // word — that is the one a player reads — and every step carries
+          // its status in sr-only text either way.
+          variant="compact"
+          className="mb-2"
+        />
         <p className="text-xs text-bf-muted">
           {gameState.phase === 'game_over'
             ? `Game over · ${gameState.turn_number} ${gameState.turn_number === 1 ? 'turn' : 'turns'}`
@@ -407,7 +397,7 @@ export default function GameHUD({
             has one. One click here redeems the first valid set, as the bots'
             own turn does (utils/cardSets.ts mirrors the server's rules). */}
         {(() => {
-          if (!desktopCardCueEnabled || mobile || !isMyTurn || gameState.phase !== 'draft' || !myPlayer) return null;
+          if (mobile || !isMyTurn || gameState.phase !== 'draft' || !myPlayer) return null;
           const setIds = findRedeemableCardIds(myPlayer.cards);
           if (!setIds) return null;
           const bonus = cardSetBonus(gameState.card_set_redemption_count ?? 0, gameState.settings.card_set_bonus_cap);
@@ -426,7 +416,7 @@ export default function GameHUD({
             </button>
           );
         })()}
-        {turnClarityEnabled && onDraftUndo && gameState.phase === 'draft' && isMyTurn &&
+        {onDraftUndo && gameState.phase === 'draft' && isMyTurn &&
           (gameState.draft_deployments_this_turn?.length ?? 0) > 0 && (
           <button
             type="button"
@@ -1298,25 +1288,23 @@ export default function GameHUD({
                   Army counts on the globe
                 </label>
               )}
-              {inGameMute && (
-                <label
-                  className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none"
-                  title="Sound effects and music together. Volumes, and muting just one, are in Settings."
-                >
-                  <input
-                    type="checkbox"
-                    checked={soundOn}
-                    onChange={(e) => {
-                      setSoundOn(e.target.checked);
-                      setSfxMuted(!e.target.checked);
-                      setMusicMuted(!e.target.checked);
-                    }}
-                    className="accent-bf-gold w-3 h-3"
-                    data-testid="hud-sound-toggle"
-                  />
-                  Sound and music
-                </label>
-              )}
+              <label
+                className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none"
+                title="Sound effects and music together. Volumes, and muting just one, are in Settings."
+              >
+                <input
+                  type="checkbox"
+                  checked={soundOn}
+                  onChange={(e) => {
+                    setSoundOn(e.target.checked);
+                    setSfxMuted(!e.target.checked);
+                    setMusicMuted(!e.target.checked);
+                  }}
+                  className="accent-bf-gold w-3 h-3"
+                  data-testid="hud-sound-toggle"
+                />
+                Sound and music
+              </label>
               <Link
                 to="/settings"
                 className="block px-1 py-1 text-[11px] text-bf-muted hover:text-bf-gold transition-colors"

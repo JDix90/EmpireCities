@@ -22,7 +22,6 @@ beforeEach(() => {
   mockViewport();
 });
 import TutorialOverlay, { renderTutorialText } from './TutorialOverlay';
-import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 import type { TutorialStep } from '../../tutorial';
 import { translatePage } from '../../test/translatePage';
 
@@ -409,10 +408,7 @@ describe('TutorialOverlay', () => {
       expect(screen.getByTestId('tutorial-card-unfold')).toHaveTextContent('Advance your era to continue…');
     });
 
-    describe('with tutorial_phone_gate_visible_enabled', () => {
-      afterEach(() => {
-        useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, tutorial_phone_gate_visible_enabled: false } }));
-      });
+    describe('cards marked for a phone', () => {
       const marked = [research, { ...advance, arrivesFoldedOverPanel: true }];
       function markedAt(stepIndex: number, panelOpen: boolean) {
         return (
@@ -431,7 +427,6 @@ describe('TutorialOverlay', () => {
 
       it('keeps a marked card folded when it arrives over the open panel, naming its action', () => {
         mockViewport({ mobile: true });
-        useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, tutorial_phone_gate_visible_enabled: true } }));
         const { rerender } = render(markedAt(0, false));
         rerender(markedAt(0, true));
         rerender(markedAt(1, true));
@@ -440,14 +435,6 @@ describe('TutorialOverlay', () => {
         expect(strip).toHaveTextContent('Advance your era to continue…');
         expect(screen.queryByText(/hit Advance to Medieval/)).toBeNull();
         fireEvent.click(strip);
-        expect(screen.getByText(/hit Advance to Medieval/)).toBeInTheDocument();
-      });
-
-      it('opens the same card as before while the flag is off', () => {
-        mockViewport({ mobile: true });
-        const { rerender } = render(markedAt(0, false));
-        rerender(markedAt(0, true));
-        rerender(markedAt(1, true));
         expect(screen.getByText(/hit Advance to Medieval/)).toBeInTheDocument();
       });
 
@@ -462,7 +449,6 @@ describe('TutorialOverlay', () => {
           phoneBrief: true,
         } as TutorialStep;
         mockViewport({ mobile: true });
-        useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, tutorial_phone_gate_visible_enabled: true } }));
         const { unmount } = overlay([briefStep], { phoneLayout: true });
         expect(screen.getByText('The main message.')).toBeInTheDocument();
         expect(screen.queryByText('The long detail.')).toBeNull();
@@ -534,9 +520,7 @@ describe('TutorialOverlay', () => {
   });
 });
 
-describe('tutorial card fade (tutorial_card_fade_enabled)', () => {
-  const setFade = (on: boolean) =>
-    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, tutorial_card_fade_enabled: on } }));
+describe('tutorial card fade', () => {
   const welcome = [{ id: 'welcome', title: 'Welcome', message: 'A long welcome.' } as TutorialStep];
   let spies: Array<{ mockRestore: () => void }> = [];
 
@@ -551,11 +535,9 @@ describe('tutorial card fade (tutorial_card_fade_enabled)', () => {
   afterEach(() => {
     spies.forEach((s) => s.mockRestore());
     spies = [];
-    setFade(true);
   });
 
   it('fades the last lines while the prose runs past the card, until scrolled to the end', () => {
-    setFade(true);
     proseOf(600, 300);
     overlay(welcome, { centered: true });
     const fade = screen.getByTestId('tutorial-prose-fade');
@@ -568,15 +550,7 @@ describe('tutorial card fade (tutorial_card_fade_enabled)', () => {
   });
 
   it('shows no fade when the prose fits', () => {
-    setFade(true);
     proseOf(200, 300);
-    overlay(welcome, { centered: true });
-    expect(screen.queryByTestId('tutorial-prose-fade')).toBeNull();
-  });
-
-  it('is the card as before with the flag off', () => {
-    setFade(false);
-    proseOf(600, 300);
     overlay(welcome, { centered: true });
     expect(screen.queryByTestId('tutorial-prose-fade')).toBeNull();
   });

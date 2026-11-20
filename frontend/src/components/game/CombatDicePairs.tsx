@@ -47,7 +47,7 @@ export default function CombatDicePairs({
 }: {
   attackerRolls: number[];
   defenderRolls: number[];
-  /** Each side's map colour (battle_player_colors_enabled); null keeps red and blue. */
+  /** Each side's map colour; null keeps red and blue. */
   attackerColor?: string | null;
   defenderColor?: string | null;
   /** A blitz: the dice shown are the last of this many exchanges. */
