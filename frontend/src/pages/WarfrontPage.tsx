@@ -5,6 +5,7 @@ import {
   BUILDING_SPECS,
   NEAREST_PASSABLE_RADIUS,
   Sim,
+  TICK_RATE,
   UnitKind,
   type MatchResult,
   cellBeach,
@@ -49,6 +50,7 @@ import { buildSoloMatch, type SoloSetup } from '../warfront/soloMatch';
 import WarfrontMatchSetup from '../components/warfront/WarfrontMatchSetup';
 import WarfrontResult from '../components/warfront/WarfrontResult';
 import { fetchWarfrontTerrain } from '../services/warfrontApi';
+import { formatMatchClock, loadDebugPref, saveDebugPref } from '../warfront/debugPref';
 
 /**
  * Warfront tactical view — Slice A steps 2–4: a solo match against the lab's bots.
@@ -104,12 +106,12 @@ const ALERT_TONE: Record<string, string> = {
 };
 
 /** One header figure: what it is, what it reads, and its unit. */
-function Readout({ label, value, note }: { label: string; value: string; note: string }) {
+function Readout({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div className="rounded border border-bf-border/70 bg-bf-dark/50 px-2 py-1 leading-tight">
       <div className="text-[8px] uppercase tracking-wider text-bf-muted">{label}</div>
       <div className="font-mono text-[11px] text-bf-text">{value}</div>
-      <div className="text-[8px] text-bf-muted">{note}</div>
+      {note ? <div className="text-[8px] text-bf-muted">{note}</div> : null}
     </div>
   );
 }
@@ -141,6 +143,14 @@ export default function WarfrontPage() {
   const focusNonceRef = useRef(0);
   /** Set once the match ends, which is also what stops the simulation advancing. */
   const [result, setResult] = useState<MatchResult | null>(null);
+  /** Development read-outs (ticks, zoom, grid). Off for anyone simply playing. */
+  const [debug, setDebug] = useState(loadDebugPref);
+  const toggleDebug = useCallback(() => {
+    setDebug((prev) => {
+      saveDebugPref(!prev);
+      return !prev;
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -523,7 +533,7 @@ export default function WarfrontPage() {
     };
   }, [grid, hoverCell]);
 
-  const seconds = (hud.ticks / 15).toFixed(1);
+  const seconds = (hud.ticks / TICK_RATE).toFixed(1);
 
   return (
     <div className="flex h-screen flex-col bg-bf-dark text-bf-text">
@@ -539,17 +549,33 @@ export default function WarfrontPage() {
         </div>
         <div className="flex items-center gap-1.5 text-[10px]">
           {runner ? (
-            <Readout label="Clock" value={`${seconds}s`} note={`tick ${hud.ticks}`} />
+            debug ? (
+              <Readout label="Clock" value={`${seconds}s`} note={`tick ${hud.ticks}`} />
+            ) : (
+              <Readout label="Clock" value={formatMatchClock(hud.ticks, TICK_RATE)} />
+            )
           ) : null}
-          {runner ? (
+          {debug && runner ? (
             <Readout label="Selected" value={`${selected.size}/${hud.units}`} note="units" />
           ) : null}
-          {camera ? (
+          {debug && camera ? (
             <Readout label="Zoom" value={`${camera.scale.toFixed(2)}`} note="px/cell" />
           ) : null}
-          {grid ? (
+          {debug && grid ? (
             <Readout label="Grid" value={`${grid.width}×${grid.height}`} note={`${grid.cellKm} km cells`} />
           ) : null}
+          <button
+            type="button"
+            aria-pressed={debug}
+            onClick={toggleDebug}
+            className={`rounded border px-2 py-1.5 text-[11px] ${
+              debug
+                ? 'border-bf-gold bg-bf-gold/20 text-bf-gold'
+                : 'border-bf-border text-bf-muted hover:border-bf-gold hover:text-bf-gold'
+            }`}
+          >
+            Debug
+          </button>
           <Link
             to="/admin"
             className="ml-1 rounded border border-bf-border px-2 py-1.5 text-[11px] hover:border-bf-gold hover:text-bf-gold"
