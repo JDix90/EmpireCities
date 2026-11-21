@@ -94,9 +94,12 @@ None of this has been started. It is listed so that nothing is discovered late.
 - [ ] The device test list in [MOBILE_CAPACITOR.md](MOBILE_CAPACITOR.md#testing-on-a-device)
       passes on an iPhone and an iPad
 - [ ] `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` set for the release
-- [ ] App icon: `AppIcon.appiconset` holds one 1024×1024 image with no alpha channel (RGB),
-      which is what App Store Connect requires; confirm it is the final artwork
-- [ ] Launch screen (`LaunchScreen.storyboard`, `Splash.imageset`) is the final artwork
+- [x] App icon and launch screen: the website's logo (`frontend/public/favicon.svg`, gold
+      triangles on `#0f1117`), matching the icon the website gives a Home Screen bookmark. The
+      icon is 1024×1024 RGB with square corners (iOS rounds them; the App Store refuses an
+      alpha channel). The launch image is 2732×2732 with the logo at about 14% of its side, and
+      the launch screen's background is the same dark colour, so the app never flashes white.
+      Both replaced Capacitor's default blue-and-white placeholder
 - [x] Export compliance: the app uses only the encryption built into iOS (HTTPS, the
       Keychain), so `Info.plist` declares `ITSAppUsesNonExemptEncryption` = false and App
       Store Connect does not ask at each upload
