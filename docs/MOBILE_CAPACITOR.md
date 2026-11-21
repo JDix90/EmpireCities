@@ -154,8 +154,9 @@ To open the project in Xcode by hand, open `frontend/ios/App/App.xcworkspace`, n
 `scripts/build-ios-release.sh` and `scripts/build-android-release.sh` wrap these and print a
 release checklist.
 
-In Xcode: pick your team under Signing & Capabilities (the project uses automatic signing and
-has no team committed), choose a device, Run. The app's entitlements
+In Xcode: choose a device and Run. The project uses automatic signing with the team committed
+(`DEVELOPMENT_TEAM = 4RNR4T2NYM`, the same Team ID the association file publishes), so Signing &
+Capabilities needs no change; the first run on a new iPhone registers it with the team. The app's entitlements
 (`App/App.entitlements`) need a team in the paid Apple Developer Program.
 
 **First time after a clone**, or if CocoaPods failed:
@@ -484,7 +485,7 @@ safe to create accounts on.
    pnpm run cap:sync:ios
    pnpm run cap:ios
    ```
-4. In Xcode: select your team, select your iPhone, Run. Repeat the list on an iPad.
+4. In Xcode: select your iPhone, Run. Repeat the list on an iPad.
 
 **Opens as an app**
 

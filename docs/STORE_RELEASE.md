@@ -95,13 +95,18 @@ None of this has been started. It is listed so that nothing is discovered late.
 - [ ] The device test list in [MOBILE_CAPACITOR.md](MOBILE_CAPACITOR.md#testing-on-a-device)
       passes on an iPhone and an iPad
 - [ ] `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` set for the release
-- [ ] App icon: `AppIcon.appiconset` holds one 1024×1024 image today; confirm it is the final
-      artwork, with no transparency
+- [ ] App icon: `AppIcon.appiconset` holds one 1024×1024 image with no alpha channel (RGB),
+      which is what App Store Connect requires; confirm it is the final artwork
 - [ ] Launch screen (`LaunchScreen.storyboard`, `Splash.imageset`) is the final artwork
-- [ ] Export compliance: the app uses only standard HTTPS. `Info.plist` does not yet declare
-      `ITSAppUsesNonExemptEncryption`; without it App Store Connect asks at every upload
-- [ ] Privacy manifest: the project has no `PrivacyInfo.xcprivacy` of its own. Check whether
-      the app's own code needs one (Capacitor and its plugins ship theirs)
+- [x] Export compliance: the app uses only the encryption built into iOS (HTTPS, the
+      Keychain), so `Info.plist` declares `ITSAppUsesNonExemptEncryption` = false and App
+      Store Connect does not ask at each upload
+- [x] Privacy manifest: none of the app's own Swift (`AppDelegate.swift`,
+      `MainViewController.swift`, `ThermalPlugin.swift`) calls an API on Apple's
+      required-reason list, so it needs no `PrivacyInfo.xcprivacy` of its own; Capacitor and
+      its plugins ship theirs. Add one if native code that does is added later
+- [x] The Xcode project names the team (`DEVELOPMENT_TEAM`), so a fresh checkout signs
+      without picking it in Signing & Capabilities
 - [ ] Built with `scripts/build-ios-release.sh` (never a plain `pnpm run build`), archived in
       Xcode, uploaded
 
