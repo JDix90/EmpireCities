@@ -18,8 +18,8 @@
     "build:native": "node scripts/check-native-env.mjs && tsc && vite build && node scripts/check-native-env.mjs --dist",
     "cap:sync": "npm run build:native && pnpm exec cap sync",
     "cap:sync:ios": "npm run build:native && pnpm exec cap sync ios",
-    "cap:ios": "npx cap open ios",
-    "cap:android": "npx cap open android"
+    "cap:ios": "pnpm exec cap open ios",
+    "cap:android": "pnpm exec cap open android"
   },
   "dependencies": {
     "@aparajita/capacitor-secure-storage": "^6.0.1",
