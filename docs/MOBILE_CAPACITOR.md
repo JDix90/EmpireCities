@@ -32,7 +32,11 @@ the server, how it differs from the website, and how to test it on a device.
 
 - Node and pnpm (repo root: `pnpm install`, then `pnpm --filter @borderfall/shared build`)
 - **iOS (macOS only):** Xcode from the App Store, CocoaPods (`sudo gem install cocoapods`), an
-  Apple Developer account for running on a device
+  Apple Developer account for running on a device. The command-line tools must point at
+  Xcode itself, not the separate Command Line Tools package, or `pod install` fails with
+  "tool 'xcodebuild' requires Xcode": run
+  `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`, then
+  `sudo xcodebuild -runFirstLaunch`. `xcode-select -p` should print that path
 - **Android:** Android Studio, JDK 17+
 
 ## Build settings
@@ -145,6 +149,8 @@ pnpm run cap:ios          # opens Xcode
 ```
 
 `pnpm run cap:sync` does the same for iOS and Android together.
+To open the project in Xcode by hand, open `frontend/ios/App/App.xcworkspace`, never
+`App.xcodeproj`: only the workspace includes the CocoaPods plugins.
 `scripts/build-ios-release.sh` and `scripts/build-android-release.sh` wrap these and print a
 release checklist.
 
