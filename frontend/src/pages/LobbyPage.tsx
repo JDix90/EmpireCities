@@ -2222,7 +2222,10 @@ export default function LobbyPage() {
         <TopNavBar user={user} onLogout={handleLogout} />
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 md:pb-8">
+      {/* pt-safe-*: the top padding plus the status bar's height. In the iOS app
+          the page starts under the clock (viewport-fit=cover); in a browser tab
+          the inset is 0, so the website is unchanged. */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-safe-6 sm:pt-safe-8 pb-20 sm:pb-8">
         {/* Onboarding Quest Banner — driven by real quest completion (questStage),
             derived from /progression/quests, not the gated users.onboarding_stage. */}
         {!(questSkipSticks && questsSkipped)
