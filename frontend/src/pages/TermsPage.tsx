@@ -24,7 +24,7 @@ export default function TermsPage() {
         <p className="text-bf-muted text-sm">Last updated: {LEGAL_LAST_UPDATED}</p>
         <p className="text-sm text-bf-muted leading-relaxed">
           These Terms govern your use of {APP_NAME} websites, games, and related services (the &ldquo;Service&rdquo;),
-          operated by JDix90. By creating an account or playing, you agree to these Terms and our{' '}
+          operated by the Borderfall operator. By creating an account or playing, you agree to these Terms and our{' '}
           <Link to="/privacy" className="text-bf-gold hover:underline">Privacy Policy</Link>.
         </p>
 
@@ -123,6 +123,49 @@ export default function TermsPage() {
             To the fullest extent permitted by law, we are not liable for indirect or consequential damages arising
             from your use of the Service. Our total liability for any claim related to the Service is limited to
             the amount you paid us in the twelve months before the claim (which may be zero for free play).
+          </p>
+        </section>
+
+        {/* Chosen by the operator: Colorado law, and binding individual arbitration
+            rather than court, with a small-claims exception, a 30-day opt-out and a
+            carve-out where local consumer law forbids it. */}
+        <section className="space-y-3" data-testid="terms-disputes">
+          <h2 className="font-display text-lg text-bf-gold">Governing law and disputes</h2>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            These Terms are governed by the laws of the State of Colorado, USA, without regard to its
+            conflict-of-law rules. The Federal Arbitration Act governs the agreement to arbitrate below.
+          </p>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            <strong className="text-bf-text">Talk to us first.</strong> Before starting a formal dispute, email us at{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-bf-gold hover:underline">{SUPPORT_EMAIL}</a>{' '}
+            with what went wrong and what you would like us to do. We will try to resolve it with you within 30 days.
+          </p>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            <strong className="text-bf-text">Binding individual arbitration.</strong> If we cannot resolve it, any
+            dispute arising out of or relating to these Terms or the Service will be settled by binding arbitration
+            administered by the American Arbitration Association under its Consumer Arbitration Rules, instead of in
+            court. The arbitration may be held by video, by phone or on written submissions; any in-person hearing
+            will be in Colorado or in the county where you live, as you choose. Either of us may instead bring an
+            individual claim in small claims court, or ask a court to stop the infringement or misuse of
+            intellectual property.
+          </p>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            <strong className="text-bf-text">No class actions.</strong> You and we each bring claims only
+            individually, and not as a plaintiff or class member in any class, collective or representative
+            proceeding. If this waiver is found unenforceable for a claim, that claim will be decided by the state or
+            federal courts located in Colorado, not in arbitration.
+          </p>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            <strong className="text-bf-text">Opting out.</strong> You may opt out of arbitration by emailing{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-bf-gold hover:underline">{SUPPORT_EMAIL}</a>{' '}
+            with the subject &ldquo;Arbitration opt-out&rdquo; within 30 days of first accepting these Terms (if you
+            joined before November 21, 2026, within 30 days of that date). Your disputes then go to the state or
+            federal courts located in Colorado.
+          </p>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            If you live in the European Economic Area, the United Kingdom, or anywhere else whose law does not allow
+            these provisions for consumers, this section applies only as far as that law permits, and you keep the
+            protections of the law where you live.
           </p>
         </section>
 

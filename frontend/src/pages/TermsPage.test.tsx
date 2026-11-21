@@ -51,9 +51,24 @@ describe('TermsPage: chat, player content and reports', () => {
     expect(within(section).getByRole('link', { name: SUPPORT_EMAIL })).toHaveAttribute('href', `mailto:${SUPPORT_EMAIL}`);
   });
 
+  it('says Colorado law governs and disputes go to individual arbitration, with an opt-out', () => {
+    render(<MemoryRouter><TermsPage /></MemoryRouter>);
+    const section = screen.getByTestId('terms-disputes');
+    expect(section).toHaveTextContent(/governed by the laws of the State of Colorado, USA/);
+    expect(section).toHaveTextContent(/binding arbitration administered by the American Arbitration Association under its Consumer Arbitration Rules/);
+    expect(section).toHaveTextContent(/small claims court/);
+    expect(section).toHaveTextContent(/No class actions/);
+    // Existing players get the same 30 days, counted from the day arbitration was added.
+    expect(section).toHaveTextContent(/subject “Arbitration opt-out” within 30 days of first accepting these Terms \(if you joined before November 21, 2026, within 30 days of that date\)/);
+    expect(section).toHaveTextContent(/European Economic Area, the United Kingdom/);
+    for (const link of within(section).getAllByRole('link', { name: SUPPORT_EMAIL })) {
+      expect(link).toHaveAttribute('href', `mailto:${SUPPORT_EMAIL}`);
+    }
+  });
+
   it('carries the date of this change', () => {
     render(<MemoryRouter><TermsPage /></MemoryRouter>);
-    expect(LEGAL_LAST_UPDATED).toBe('November 15, 2026');
+    expect(LEGAL_LAST_UPDATED).toBe('November 21, 2026');
     expect(screen.getByText(`Last updated: ${LEGAL_LAST_UPDATED}`)).toBeInTheDocument();
   });
 });

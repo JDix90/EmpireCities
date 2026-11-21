@@ -3,8 +3,8 @@
 > **Status: store-submission draft — NOT the canonical policy.**
 > The policy users see and agree to lives at https://borderfall.gg/privacy
 > (source: `frontend/src/pages/PrivacyPage.tsx`). This template retains the
-> long-form structure for future app-store submissions; complete the
-> bracketed placeholders with counsel before submitting it anywhere.
+> long-form structure for future app-store submissions; have counsel review
+> it before submitting it anywhere.
 
 
 **Effective date:** November 15, 2026  
@@ -17,9 +17,8 @@ If you deploy Borderfall yourself, the entity operating that deployment is respo
 
 ## 1. Who we are
 
-**Data controller / operator:** [Your legal name or company name]  
-**Contact (privacy inquiries):** [privacy@yourdomain.com]  
-**Address (optional):** [Street, city, country]
+**Data controller / operator:** the Borderfall operator  
+**Contact (privacy inquiries):** support@borderfall.gg
 
 ---
 
@@ -111,7 +110,7 @@ Depending on where you live, you may have rights to:
 - Withdraw consent where processing is based on consent.
 - Lodge a complaint with a supervisory authority.
 
-To exercise these rights, contact us at **[privacy@yourdomain.com]**. We may need to verify your identity before fulfilling requests.
+To exercise these rights, contact us at **support@borderfall.gg**. We may need to verify your identity before fulfilling requests.
 
 ---
 
@@ -135,13 +134,13 @@ We may update this Privacy Policy from time to time. We will post the revised po
 
 ## 13. California residents (summary)
 
-If the California Consumer Privacy Act (CCPA) / CPRA applies, you have rights to know, delete, and correct personal information, and to opt out of certain “sales” or “sharing” (we do not sell personal information as described in Section 3). You may designate an authorized agent as permitted by law. Contact **[privacy@yourdomain.com]** to submit requests.
+If the California Consumer Privacy Act (CCPA) / CPRA applies, you have rights to know, delete, and correct personal information, and to opt out of certain “sales” or “sharing” (we do not sell personal information as described in Section 3). You may designate an authorized agent as permitted by law. Contact **support@borderfall.gg** to submit requests.
 
 ---
 
 ## 14. Contact
 
-Questions about this Privacy Policy: **[privacy@yourdomain.com]**
+Questions about this Privacy Policy: **support@borderfall.gg**
 
 ---
 
