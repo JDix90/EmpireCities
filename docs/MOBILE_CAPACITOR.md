@@ -168,6 +168,15 @@ cd frontend/ios/App && pod install
 `CURRENT_PROJECT_VERSION` (the build number) are in the Xcode project. The store version is
 what the app reports to the server as its version; bump it for every release.
 
+**The app starts through a scene.** Apps built with the iOS 27 SDK must use UIKit's scene life
+cycle; one that does not is stopped at launch with "UIScene life cycle is required for apps built
+with this SDK" (a black screen, and `EXC_BREAKPOINT` in `UIApplicationMain` in Xcode). So
+`Info.plist` declares one scene (`UIApplicationSceneManifest`, storyboard `Main`), and
+`AppDelegate.swift` holds a `SceneDelegate` that owns the window. Under scenes iOS hands a link
+that opens the app to the scene delegate, not the app delegate, so that is where universal links
+are passed to Capacitor (`ApplicationDelegateProxy`), on a cold start as well as while running.
+Push registration still arrives in the app delegate.
+
 **Minimum iOS version: 15.** Current Xcode refuses to build for anything lower. It is set in
 three places that must agree: `IPHONEOS_DEPLOYMENT_TARGET` in the Xcode project, `platform :ios`
 in `ios/App/Podfile`, and that Podfile's `post_install`, which raises every plugin pod to the
@@ -607,7 +616,7 @@ What is different, and not done:
 | Path | What |
 |------|------|
 | `frontend/capacitor.config.ts` | `appId: com.borderfall.app`, `appName: Borderfall`, `webDir: dist` |
-| `frontend/ios/App/` | The Xcode project. `App/AppDelegate.swift`, `App/MainViewController.swift` (registers in-repo plugins), `App/ThermalPlugin.swift`, `App/Info.plist`, `Podfile` (rewritten by `cap sync`) |
+| `frontend/ios/App/` | The Xcode project. `App/AppDelegate.swift` (the app delegate and the scene delegate), `App/MainViewController.swift` (registers in-repo plugins), `App/ThermalPlugin.swift`, `App/Info.plist`, `Podfile` (rewritten by `cap sync`) |
 | `frontend/android/` | The Gradle project |
 | `frontend/scripts/nativeBuildEnv.mjs`, `check-native-env.mjs` | The `build:native` guard |
 | `frontend/src/utils/nativeApp.ts` | `isNativeApp()`, link handling, `openExternal()` |
