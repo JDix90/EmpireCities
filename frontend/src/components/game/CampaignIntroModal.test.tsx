@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import CampaignIntroModal from './CampaignIntroModal';
 
 vi.mock('../../services/api', () => ({
@@ -69,5 +69,29 @@ describe('CampaignIntroModal', () => {
     );
     expect((await screen.findByTestId('campaign-intro-ability')).textContent)
       .toBe('Mongol Khanate — Horse Archers: strike before the defender rolls.');
+  });
+
+  // The card is taller than a phone screen: the overlay scrolls, clears the
+  // status bar and home indicator, and opens at the top of the card.
+  it('lets a card taller than the screen scroll, clear of the notch and home bar', () => {
+    render(<CampaignIntroModal data={base} onBegin={() => {}} />);
+    const overlay = screen.getByTestId('campaign-intro-overlay');
+    expect(overlay.className).toMatch(/\boverflow-y-auto\b/);
+    expect(overlay.className).toMatch(/\bpt-safe-4\b/);
+    expect(overlay.className).toMatch(/\bpb-safe-4\b/);
+    // Centring inside a scroll box would cut the card off at both ends again.
+    expect(overlay.className).not.toMatch(/\bitems-center\b/);
+  });
+
+  it('focuses Begin Era without scrolling to it, and Enter still begins', () => {
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+    const onBegin = vi.fn();
+    render(<CampaignIntroModal data={base} onBegin={onBegin} />);
+    const begin = screen.getByRole('button', { name: 'Begin Era' });
+    expect(document.activeElement).toBe(begin);
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(onBegin).toHaveBeenCalledTimes(1);
+    focus.mockRestore();
   });
 });
