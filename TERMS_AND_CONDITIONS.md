@@ -3,13 +3,13 @@
 > **Status: store-submission draft — NOT the canonical terms.**
 > The terms users see and agree to live at https://borderfall.gg/terms
 > (source: `frontend/src/pages/TermsPage.tsx`). This template retains the
-> long-form structure for future app-store submissions; complete the
-> bracketed placeholders with counsel before submitting it anywhere.
+> long-form structure for future app-store submissions; have counsel review
+> it before submitting it anywhere.
 
 
-**Effective date:** March 31, 2026  
+**Effective date:** November 21, 2026  
 
-Please read these Terms & Conditions (“**Terms**”) carefully. They govern your access to and use of **Borderfall** and related websites, applications, and services (collectively, the “**Services**”), operated by **JDix90** (“**we**,” “**us**,” or “**our**”).  
+Please read these Terms & Conditions (“**Terms**”) carefully. They govern your access to and use of **Borderfall** and related websites, applications, and services (collectively, the “**Services**”), operated by **the Borderfall operator** (“**we**,” “**us**,” or “**our**”).  
 
 By creating an account, accessing, or using the Services, you agree to these Terms. If you do not agree, do not use the Services.
 
@@ -27,7 +27,7 @@ You must be at least **13 years old** (or the age of digital consent in your cou
 
 - You may need to register an account with accurate information.
 - You are responsible for maintaining the confidentiality of your credentials and for all activity under your account.
-- Notify us promptly at **[support@yourdomain.com]** if you suspect unauthorized access.
+- Notify us promptly at **support@borderfall.gg** if you suspect unauthorized access.
 - We may suspend or terminate accounts that violate these Terms or pose a risk to the Services or other users.
 
 ---
@@ -56,7 +56,7 @@ You agree not to:
 - Use the Services for unlawful purposes or in violation of third-party rights.
 - Impersonate any person or entity or misrepresent your affiliation.
 
-**There is no tolerance for objectionable content or abusive users.** Chat is filtered for offensive language and community maps are reviewed before they are published, but filters can miss things. Users can report a chat message from the chat itself, block a user so that user's chat no longer reaches them, or contact us at **[support@yourdomain.com]**. We review every report within 24 hours; when content breaks these Terms, we remove it and act against the user who posted it, up to permanently terminating their account, without notice where the case is serious.
+**There is no tolerance for objectionable content or abusive users.** Chat is filtered for offensive language and community maps are reviewed before they are published, but filters can miss things. Users can report a chat message from the chat itself, block a user so that user's chat no longer reaches them, or contact us at **support@borderfall.gg**. We review every report within 24 hours; when content breaks these Terms, we remove it and act against the user who posted it, up to permanently terminating their account, without notice where the case is serious.
 
 We may investigate violations and cooperate with law enforcement where appropriate.
 
@@ -114,11 +114,17 @@ You may stop using the Services at any time. We may suspend or terminate access 
 
 ## 12. Governing law and disputes
 
-These Terms are governed by the laws of **[State/Country]**, excluding conflict-of-law rules.  
+These Terms are governed by the laws of the **State of Colorado, USA**, without regard to its conflict-of-law rules. The Federal Arbitration Act governs the agreement to arbitrate in this section.
 
-**Venue:** **[Courts of City, State/Country]** (or insert arbitration clause if you prefer binding arbitration).
+**Informal resolution first.** Before starting a formal dispute, email us at support@borderfall.gg with what went wrong and what you would like us to do. We will try to resolve it with you within 30 days.
 
-If you are a consumer in the EEA or UK, you may benefit from mandatory protections of the laws of your country of residence.
+**Binding individual arbitration.** If we cannot resolve it, any dispute arising out of or relating to these Terms or the Services will be settled by binding arbitration administered by the American Arbitration Association under its Consumer Arbitration Rules, instead of in court. The arbitration may be held by video, by phone or on written submissions; any in-person hearing will be in Colorado or in the county where you live, as you choose. Either party may instead bring an individual claim in small claims court, or seek an injunction in court against the infringement or misuse of intellectual property.
+
+**Class action waiver.** You and we each bring claims only individually, and not as a plaintiff or class member in any class, collective or representative proceeding. If this waiver is found unenforceable for a claim, that claim will be decided by the state or federal courts located in Colorado, not in arbitration.
+
+**Opting out.** You may opt out of arbitration by emailing support@borderfall.gg with the subject “Arbitration opt-out” within 30 days of first accepting these Terms (if you joined before November 21, 2026, within 30 days of that date). Your disputes then go to the state or federal courts located in Colorado.
+
+**Consumers outside the United States.** If you live in the European Economic Area, the United Kingdom, or anywhere else whose law does not allow these provisions for consumers, this section applies only as far as that law permits, and you keep the mandatory protections of the law of your country of residence.
 
 ---
 
@@ -139,10 +145,10 @@ We may modify these Terms by posting updated Terms and updating the effective da
 
 ## 15. Contact
 
-**General support:** [support@yourdomain.com]  
+**General support:** support@borderfall.gg  
 **Legal notices:** support@borderfall.gg  
 
-**Operator:** JDix90  
+**Operator:** the Borderfall operator  
 
 ---
 

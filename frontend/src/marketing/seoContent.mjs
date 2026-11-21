@@ -626,7 +626,7 @@ const STATIC_MARKETING_PAGES = [
     path: '/terms',
     title: 'Terms of Service — Borderfall',
     description:
-      'The terms governing your use of Borderfall, operated by JDix90: '
+      'The terms governing your use of Borderfall, operated by the Borderfall operator: '
       + 'eligibility, your account, acceptable use, and player-created content.',
     h1: 'Terms of Service',
     jsonLd: false,
@@ -635,7 +635,7 @@ const STATIC_MARKETING_PAGES = [
         type: 'p',
         text:
           'A short summary of the terms; the full version is on this page. Borderfall '
-          + 'is operated by JDix90. You must be at least 13 to register. You are '
+          + 'is operated by the Borderfall operator. You must be at least 13 to register. You are '
           + 'responsible for your account and for keeping your credentials secure, and '
           + 'you agree not to cheat, abuse other players, or disrupt the service.',
       },

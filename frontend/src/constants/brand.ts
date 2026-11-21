@@ -19,7 +19,7 @@ export const SUPPORT_EMAIL =
  * one does not re-date the other. Last change: no tolerance for objectionable
  * content or abusive players, and how reports are handled.
  */
-export const LEGAL_LAST_UPDATED = 'November 15, 2026';
+export const LEGAL_LAST_UPDATED = 'November 21, 2026';
 
 /**
  * The Privacy Policy's date: chat reports and blocks, push tokens in the iOS

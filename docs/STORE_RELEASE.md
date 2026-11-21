@@ -15,7 +15,7 @@ Recorded 15 November 2026.
 | iPhone only, or iPad too? | **iPhone and iPad** | The Xcode target stays `TARGETED_DEVICE_FAMILY = "1,2"`. The listing needs iPad screenshots, and Apple reviews the app on an iPad as well |
 | Chat in the app at launch? | **Yes, with GIF search off in the app** | Chat needs the report and block tools switched on (below). GIF search is hidden in the app only; a GIF sent from the website still shows there and can be reported |
 | Apple Developer Team ID | **`4RNR4T2NYM`** (enrolled; recorded 20 November 2026) | Universal links need it in `frontend/public/.well-known/apple-app-site-association`, where it now is; it takes effect when the website is deployed ([check](MOBILE_CAPACITOR.md#before-it-works-the-team-id)). The server's `APNS_TEAM_ID` is the same value |
-| Legal name and contact emails | **Not provided yet** | `PRIVACY_POLICY.md` and `TERMS_AND_CONDITIONS.md` keep their bracketed placeholders. The in-app pages name `support@borderfall.gg` (`VITE_SUPPORT_EMAIL`) and no legal entity |
+| Operator name, contact emails, governing law | **Recorded 21 November 2026** | The legal documents name the operator only as "the Borderfall operator": no personal name or handle. Privacy and support contact: `support@borderfall.gg`. No postal address. Colorado law, with binding individual arbitration (AAA Consumer Rules), a small-claims exception, a class-action waiver and a 30-day opt-out, in the in-app Terms and `TERMS_AND_CONDITIONS.md`. Counsel has not reviewed it |
 | Sign in with Apple | Not required | The app has no third-party sign-in |
 | In-app purchase | Not required | Nothing is sold for real money; gold and gems are earned |
 
@@ -44,9 +44,9 @@ there as a blocker.
 
 **Details only the owner can supply**
 
-- [ ] Legal name (or company) and the privacy and support contact emails, for the placeholders
-      in `PRIVACY_POLICY.md` and `TERMS_AND_CONDITIONS.md`. The governing-law and venue
-      placeholders in the terms need a decision too. Have counsel read both.
+- [x] Operator name, contact emails and governing law, in `PRIVACY_POLICY.md`,
+      `TERMS_AND_CONDITIONS.md` and the in-app Terms. Still worth doing: have counsel read the
+      arbitration section and both documents.
 - [ ] An Apple push key (`.p8`), created in the Apple Developer account and copied to the
       server ([how](MOBILE_CAPACITOR.md#push-notifications)).
 - [x] The Apple Developer Team ID, in the association file. Still to do: deploy the website and
@@ -70,10 +70,9 @@ there as a blocker.
 
 **Worth deciding before submission**
 
-- [ ] Whether the Terms of Service should say outright that objectionable content and abusive
-      behaviour are not tolerated and that reports are reviewed. Apple asks apps with
-      user-generated content for terms to that effect; the current terms forbid unlawful
-      content in chat but make no statement about reports.
+- [x] The Terms of Service say there is no tolerance for objectionable content or abusive
+      players, how to report and block, and that every report is reviewed within 24 hours
+      (`frontend/src/pages/TermsPage.tsx`, "Chat, player content and reports").
 - [ ] Whether a GIF sent from the website should show in the app's chat at all.
 
 ## The App Store process
