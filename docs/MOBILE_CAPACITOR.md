@@ -168,6 +168,11 @@ cd frontend/ios/App && pod install
 `CURRENT_PROJECT_VERSION` (the build number) are in the Xcode project. The store version is
 what the app reports to the server as its version; bump it for every release.
 
+**Minimum iOS version: 15.** Current Xcode refuses to build for anything lower. It is set in
+three places that must agree: `IPHONEOS_DEPLOYMENT_TARGET` in the Xcode project, `platform :ios`
+in `ios/App/Podfile`, and that Podfile's `post_install`, which raises every plugin pod to the
+same minimum (their podspecs still say 13.0). `cap sync` leaves all three alone.
+
 **Custom native code.** Plugins from npm are picked up by `cap sync`. Plugins that live in
 this repo are registered by hand in `frontend/ios/App/App/MainViewController.swift`
 (`ThermalPlugin.swift`, which reports device heat, is the one today).
